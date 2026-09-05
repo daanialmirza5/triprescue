@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-ink-700/50;
+  }
+  html {
+    font-feature-settings: 'cv11', 'ss01';
+    font-variation-settings: 'opsz' 32;
+  }
+  body {
+    @apply bg-ink-950 text-ink-100 font-sans antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.05), transparent),
+      radial-gradient(ellipse 60% 50% at 100% 100%, rgba(59, 130, 246, 0.03), transparent);
+    background-attachment: fixed;
+  }
+  ::selection {
+    @apply bg-accent-500/20 text-ink-100;
+  }
+  :focus-visible {
+    outline: 2px solid #06b6d4;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.3);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(100, 116, 139, 0.5);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .bg-dot-grid {
+    background-image: radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-ink-700/60 shadow-card;
+  }
+  .glass-strong {
+    @apply bg-white/95 backdrop-blur-xl border border-ink-700 shadow-card;
+  }
+}
+
+/* React Flow overrides */
+.react-flow {
+  --bg-color: transparent;
+  background: transparent;
+}
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__background {
+  pointer-events: none;
+}
+.react-flow__controls {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08) !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
+  fill: #64748b !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(15, 23, 42, 0.05) !important;
+  fill: #1a2236 !important;
+}
+.react-flow__minimap {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 8px !important;
+}
+.react-flow__edge-path {
+  transition: stroke 0.5s ease, stroke-width 0.3s ease;
+}
+.react-flow__handle {
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
