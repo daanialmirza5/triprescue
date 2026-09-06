@@ -5,7 +5,7 @@ import { useAuth } from '@/store/AuthContext';
 type Mode = 'login' | 'register';
 
 export function LoginScreen() {
-  const { loginWithPassword, registerAccount, continueAsDemo, busy, error } = useAuth();
+  const { loginWithPassword, registerAccount, continueAsDemo, busy, error, wakingServer } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -90,6 +90,11 @@ export function LoginScreen() {
               />
             </div>
 
+            {wakingServer && !error && (
+              <p className="text-xs text-ink-400">
+                Waking up the TripRescue server — this can take up to a minute on the first request.
+              </p>
+            )}
             {error && <p className="text-xs text-red-600">{error}</p>}
 
             <button

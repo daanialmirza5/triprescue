@@ -10,6 +10,7 @@ interface AuthState {
   profile: api.TravelerProfile | null;
   busy: boolean;
   error: string | null;
+  wakingServer: boolean;
 }
 
 interface AuthContextValue extends AuthState {
@@ -27,11 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile: null,
     busy: false,
     error: null,
+    wakingServer: false,
   });
 
   const loadProfile = useCallback(async () => {
     const profile = await api.getMe();
-    setState({ status: 'authenticated', profile, busy: false, error: null });
+    setState({ status: 'authenticated', profile, busy: false, error: null, wakingServer: false });
   }, []);
 
   useEffect(() => {
@@ -43,12 +45,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Stored token is stale/invalid (e.g. server restarted with a new auth
       // secret) - fall back to the login screen rather than looping forever.
       clearStoredToken();
-      setState({ status: 'unauthenticated', profile: null, busy: false, error: null });
+      setState({ status: 'unauthenticated', profile: null, busy: false, error: null, wakingServer: false });
     });
   }, [loadProfile]);
 
   const withAuthResponse = useCallback(async (call: () => Promise<api.AuthResponse>) => {
-    setState((s) => ({ ...s, busy: true, error: null }));
+    setState((s) => ({ ...s, busy: true, error: null, wakingServer: false }));
+    // The backend can be cold (Render free-tier spin-down) the first time
+    // someone hits it; api.ts retries automatically, this just reflects that
+    // retry in the UI so the user sees "waking up" instead of a stuck spinner.
+    api.onColdStartRetry(() => setState((s) => ({ ...s, wakingServer: true })));
     try {
       const auth = await call();
       setStoredToken(auth.token);
@@ -57,9 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         busy: false,
+        wakingServer: false,
         error: err instanceof ApiError ? err.message : 'Something went wrong. Please try again.',
       }));
       throw err;
+    } finally {
+      api.onColdStartRetry(null);
     }
   }, [loadProfile]);
 
@@ -77,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearStoredToken();
-    setState({ status: 'unauthenticated', profile: null, busy: false, error: null });
+    setState({ status: 'unauthenticated', profile: null, busy: false, error: null, wakingServer: false });
   }, []);
 
   return (
