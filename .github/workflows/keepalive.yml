@@ -1,0 +1,16 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          curl -sf -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" \
+            https://triprescue-kw9d.onrender.com/api/health || \
+          echo "Ping failed or backend was cold-starting (non-fatal)."
