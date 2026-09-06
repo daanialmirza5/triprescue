@@ -23,9 +23,22 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_TIMEOUT_MS = 12000;
+const DEFAULT_TIMEOUT_MS = 15000;
+// Render's free tier spins the backend down after inactivity; waking it back
+// up can take up to ~60s. A single short-timeout request would fail during
+// that window, so a request that times out gets one retry with a much longer
+// timeout instead of surfacing an error the user can't do anything about.
+const COLD_START_TIMEOUT_MS = 55000;
 
-async function request<T>(path: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+let coldStartHandler: (() => void) | null = null;
+
+// Lets the UI show a "waking up the server" notice while a cold-start retry
+// is in flight, instead of the request silently taking up to a minute.
+export function onColdStartRetry(handler: (() => void) | null) {
+  coldStartHandler = handler;
+}
+
+async function attempt<T>(path: string, options: RequestInit, timeoutMs: number): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -63,6 +76,20 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs = D
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  try {
+    return await attempt<T>(path, options, DEFAULT_TIMEOUT_MS);
+  } catch (err) {
+    // status 0 = client-side network/abort failure, not a real 4xx/5xx from
+    // the server - exactly what a cold, still-waking backend looks like.
+    if (err instanceof ApiError && err.status === 0) {
+      coldStartHandler?.();
+      return await attempt<T>(path, options, COLD_START_TIMEOUT_MS);
+    }
+    throw err;
+  }
 }
 
 function get<T>(path: string): Promise<T> {
