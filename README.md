@@ -12,7 +12,7 @@ TripRescue is an explainable travel disruption recovery engine that models multi
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 1. [Overview](#1-overview)
 2. [Problem Statement](#2-problem-statement)
 3. [Solution](#3-solution)
