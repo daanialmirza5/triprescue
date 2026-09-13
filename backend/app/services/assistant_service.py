@@ -51,6 +51,15 @@ def _gather_context(db: Session, trip_id: str, traveler_id: str | None = None) -
     }
 
 
+def _breakdown_component(breakdown: dict, key: str) -> str:
+    """score_breakdown is stored as a raw JSON dict on the ORM model (see
+    RecoveryPlan.score_breakdown in app/models/recovery.py), never a
+    ScoreBreakdownOut instance - always access it by key, and fall back to
+    "n/a" rather than crash if a component is missing."""
+    value = breakdown.get(key)
+    return "n/a" if value is None else str(value)
+
+
 def _deterministic_answer(context: dict, message: str) -> tuple[str, list[AssistantReference]]:
     trip = context["trip"]
     disruption = context["disruption"]
@@ -79,9 +88,11 @@ def _deterministic_answer(context: dict, message: str) -> tuple[str, list[Assist
             breakdown = applied_plan.score_breakdown
             return (
                 f"\"{applied_plan.name}\" was applied because it scored highest ({applied_plan.score}/100) for "
-                f"your preferences at the time: cost {breakdown.get('cost')}, speed {breakdown.get('speed')}, "
-                f"preservation {breakdown.get('preservation')}, comfort {breakdown.get('comfort')}, risk "
-                f"{breakdown.get('risk')}. It preserved {applied_plan.bookings_preserved}/"
+                f"your preferences at the time: cost {_breakdown_component(breakdown, 'cost')}, speed "
+                f"{_breakdown_component(breakdown, 'speed')}, preservation "
+                f"{_breakdown_component(breakdown, 'preservation')}, comfort "
+                f"{_breakdown_component(breakdown, 'comfort')}, risk {_breakdown_component(breakdown, 'risk')}. "
+                f"It preserved {applied_plan.bookings_preserved}/"
                 f"{applied_plan.total_bookings} bookings for +₹{applied_plan.cost_delta:,.0f}.",
                 refs,
             )
@@ -124,9 +135,10 @@ def _deterministic_answer(context: dict, message: str) -> tuple[str, list[Assist
         breakdown = top.score_breakdown
         return (
             f"\"{top.name}\" ranks highest ({top.score}/100) given your current preferences: cost score "
-            f"{breakdown.cost}, speed {breakdown.speed}, preservation {breakdown.preservation}, comfort "
-            f"{breakdown.comfort}, risk {breakdown.risk}. It preserves {top.bookings_preserved}/"
-            f"{top.total_bookings} bookings.",
+            f"{_breakdown_component(breakdown, 'cost')}, speed {_breakdown_component(breakdown, 'speed')}, "
+            f"preservation {_breakdown_component(breakdown, 'preservation')}, comfort "
+            f"{_breakdown_component(breakdown, 'comfort')}, risk {_breakdown_component(breakdown, 'risk')}. "
+            f"It preserves {top.bookings_preserved}/{top.total_bookings} bookings.",
             refs,
         )
 
