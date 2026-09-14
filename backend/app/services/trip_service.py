@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy.orm import Session
 
 from app.database import seed as seed_module
@@ -153,6 +155,41 @@ def get_trip_out(db: Session, trip_id: str, traveler_id: str | None = None) -> T
         status=trip.status.value,
         days=_build_days(nodes),
     )
+
+
+def _format_display_date(iso_date: str) -> str:
+    """Store trip-level dates the same human-readable way the seeded trips
+    use ("12 Sep 2025"), not the raw ISO string the date-picker sends."""
+    return date.fromisoformat(iso_date).strftime("%d %b %Y")
+
+
+def create_trip(
+    db: Session,
+    traveler_id: str,
+    name: str,
+    origin: str,
+    destination: str,
+    start_date: str,
+    end_date: str,
+) -> TripOut:
+    """Ownership is exclusively the authenticated caller - `traveler_id` comes
+    from the route's auth dependency, never from request body content, so a
+    client cannot create a trip on someone else's behalf no matter what a
+    request body claims. Trip value/health score/status are left unset here
+    and take the model's own defaults (0, 100, operational) - the same
+    defaults every other freshly-created record in this app gets."""
+    trip = Trip(
+        traveler_id=traveler_id,
+        name=name.strip(),
+        route=f"{origin.strip()} → {destination.strip()}",
+        origin=origin.strip(),
+        destination=destination.strip(),
+        start_date=_format_display_date(start_date),
+        end_date=_format_display_date(end_date),
+    )
+    TripRepository(db).save(trip)
+    db.commit()
+    return get_trip_out(db, trip.id, traveler_id)
 
 
 def list_trip_summaries(db: Session, traveler_id: str | None = None) -> list[TripSummaryOut]:

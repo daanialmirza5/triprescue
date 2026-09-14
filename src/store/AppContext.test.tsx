@@ -18,6 +18,8 @@ vi.mock('@/services/api', async () => {
     resetTrip: vi.fn(),
     setPreferences: vi.fn(),
     markNotificationsRead: vi.fn(),
+    createTrip: vi.fn(),
+    listTrips: vi.fn(),
   };
 });
 
@@ -85,6 +87,7 @@ beforeEach(() => {
     disruptionVsComfort: 50,
     recoveryPriorities: { minimizeCost: false, minimizeTime: false, minimizeDisruption: true, maximizeComfort: false },
   });
+  vi.mocked(api.listTrips).mockResolvedValue([]);
 });
 
 describe('AppContext', () => {
@@ -199,6 +202,55 @@ describe('AppContext', () => {
     expect(second.result.current.noTripFound).toBe(true);
     // The first session's own state is unaffected by the second mounting.
     expect(first.result.current.trip.name).toBe('First User Trip');
+  });
+
+  it('falls back to the traveler\'s own trip (surviving a refresh) when the default trip 404s but they own a real trip', async () => {
+    // Simulates a browser refresh after creating a trip: tripId always
+    // starts from the hardcoded default on a fresh load (nothing is
+    // persisted client-side), which a real user doesn't own, but they do
+    // own a genuine trip the backend can list.
+    vi.mocked(api.getItinerary).mockRejectedValueOnce(new api.ApiError('Trip not found', 404));
+    vi.mocked(api.listTrips).mockResolvedValue([
+      { id: 'trip-mine', name: 'My Real Trip', route: 'A to B', startDate: '2026-01-01', endDate: '2026-01-03', tripValue: 0, healthScore: 100, status: 'operational', nodeCount: 0, edgeCount: 0 },
+    ]);
+    vi.mocked(api.getItinerary).mockResolvedValueOnce(baseTrip({ id: 'trip-mine', name: 'My Real Trip' }));
+
+    const { result } = renderHook(() => useApp(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.noTripFound).toBe(false);
+    expect(result.current.tripId).toBe('trip-mine');
+    expect(result.current.trip.name).toBe('My Real Trip');
+  });
+
+  it('creates a trip via the API and makes it the active trip', async () => {
+    vi.mocked(api.getItinerary).mockResolvedValue(baseTrip());
+    const { result } = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const created = baseTrip({ id: 'trip-new', name: 'Kyoto Weekend' });
+    vi.mocked(api.createTrip).mockResolvedValue(created);
+    vi.mocked(api.getItinerary).mockResolvedValue(created);
+
+    await act(async () => {
+      await result.current.createTrip({
+        name: 'Kyoto Weekend',
+        origin: 'Tokyo',
+        destination: 'Kyoto',
+        startDate: '2026-04-10',
+        endDate: '2026-04-13',
+      });
+    });
+
+    expect(api.createTrip).toHaveBeenCalledWith({
+      name: 'Kyoto Weekend',
+      origin: 'Tokyo',
+      destination: 'Kyoto',
+      startDate: '2026-04-10',
+      endDate: '2026-04-13',
+    });
+    await waitFor(() => expect(result.current.trip.id).toBe('trip-new'));
+    expect(result.current.tripId).toBe('trip-new');
   });
 
   it('resets disruption/recovery state and reloads when switching trips', async () => {

@@ -164,6 +164,18 @@ export async function listTrips(): Promise<TripSummary[]> {
   return get<TripSummary[]>('/api/trips');
 }
 
+export interface TripCreateRequest {
+  name: string;
+  origin: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+}
+
+export async function createTrip(req: TripCreateRequest): Promise<Trip> {
+  return post<Trip>('/api/trips', req);
+}
+
 export async function getItinerary(tripId: string): Promise<Trip> {
   return get<Trip>(`/api/trips/${tripId}`);
 }
