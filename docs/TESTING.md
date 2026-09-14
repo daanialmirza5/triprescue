@@ -17,7 +17,7 @@ All four frontend commands and the backend pytest run are expected to pass
 with zero errors on `main` at all times - none of them are optional/"known
 failing."
 
-## Backend suite (`backend/app/tests/`, 65 tests)
+## Backend suite (`backend/app/tests/`, 77 tests)
 
 Pure-engine unit tests, run with no database and no HTTP layer - they
 construct `EngineNode`/`EngineEdge` fixtures directly:
