@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 from app.database import seed as seed_module
 from app.engines.itinerary_engine import ItineraryEngine
 from app.models.activity import ActivityEvent
+from app.models.booking import Booking
 from app.models.dependency_edge import DependencyEdge
-from app.models.enums import ActivityType
+from app.models.enums import ActivityType, NodeCategory
 from app.models.itinerary_node import ItineraryNode
 from app.models.trip import Trip
 from app.repositories.activity_repository import ActivityRepository, NotificationRepository
@@ -17,7 +18,7 @@ from app.repositories.trip_repository import TripRepository
 from app.schemas.activity import ActivityEventOut
 from app.schemas.common import TravelerPreferences
 from app.schemas.notification import NotificationOut
-from app.schemas.trip import BookingOut, EdgeOut, NodeOut, TripDayOut, TripOut, TripSummaryOut
+from app.schemas.trip import BookingOut, EdgeOut, NodeCreateRequest, NodeOut, TripDayOut, TripOut, TripSummaryOut
 from app.services.converters import (
     format_date,
     format_time,
@@ -190,6 +191,59 @@ def create_trip(
     TripRepository(db).save(trip)
     db.commit()
     return get_trip_out(db, trip.id, traveler_id)
+
+
+def add_flight_node(db: Session, trip_id: str, traveler_id: str, request: NodeCreateRequest) -> TripOut:
+    """Creates the flight's itinerary node and its matching Booking record
+    (required for the existing Bookings page, which queries the Booking
+    table directly rather than deriving from nodes - see get_bookings_out)
+    atomically: both are added to the same session and persisted by one
+    db.commit() at the end, so a failure anywhere in between leaves neither
+    behind (get_db's rollback-on-exception in app/database/session.py is
+    what actually guarantees that, the same mechanism apply_recovery
+    already relies on)."""
+    trip = get_trip(db, trip_id, traveler_id)  # ownership check before mutating
+
+    existing_nodes = NodeRepository(db).list_for_trip(trip_id)
+    day = max((n.day for n in existing_nodes), default=0) + 1
+
+    node = ItineraryNode(
+        trip_id=trip_id,
+        category=NodeCategory.FLIGHT,
+        label=request.title,
+        title=request.title,
+        subtitle=f"{request.provider} · {request.confirmation}",
+        location=request.origin_code,
+        scheduled_start=request.scheduled_start,
+        scheduled_end=request.scheduled_end,
+        provider=request.provider,
+        confirmation=request.confirmation,
+        cost=request.cost,
+        cancellation_policy="",
+        refundable=False,
+        day=day,
+        icon="plane",
+        origin_code=request.origin_code,
+        destination_code=request.destination_code,
+    )
+    NodeRepository(db).save(node)
+
+    booking = Booking(
+        trip_id=trip_id,
+        node_id=node.id,
+        category=NodeCategory.FLIGHT,
+        provider=request.provider,
+        confirmation=request.confirmation,
+        cost=request.cost,
+        refundable=False,
+        cancellation_policy="",
+        route=f"{request.origin_code} → {request.destination_code}",
+    )
+    db.add(booking)
+
+    trip.trip_value = trip.trip_value + request.cost
+    db.commit()
+    return get_trip_out(db, trip_id, traveler_id)
 
 
 def list_trip_summaries(db: Session, traveler_id: str | None = None) -> list[TripSummaryOut]:

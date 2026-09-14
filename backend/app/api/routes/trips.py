@@ -7,7 +7,7 @@ from app.schemas.activity import ActivityEventOut
 from app.schemas.common import TravelerPreferences
 from app.schemas.notification import NotificationOut
 from app.schemas.risk import RiskAnalysisOut
-from app.schemas.trip import BookingOut, TripCreateRequest, TripOut, TripSummaryOut
+from app.schemas.trip import BookingOut, NodeCreateRequest, TripCreateRequest, TripOut, TripSummaryOut
 from app.services import risk_service, trip_service
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
@@ -36,6 +36,19 @@ def create_trip(
         request.start_date,
         request.end_date,
     )
+
+
+@router.post("/{trip_id}/nodes", response_model=TripOut, status_code=201)
+def add_node(
+    trip_id: str,
+    request: NodeCreateRequest,
+    db: Session = Depends(get_db),
+    traveler_id: str = Depends(get_current_traveler_id),
+):
+    try:
+        return trip_service.add_flight_node(db, trip_id, traveler_id, request)
+    except trip_service.TripNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
 
 
 @router.get("/{trip_id}", response_model=TripOut)

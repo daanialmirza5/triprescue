@@ -178,6 +178,199 @@ def test_get_bookings(client):
     assert len(resp.json()) == 7  # 8 nodes minus the synthetic connection node
 
 
+def _valid_flight_payload(**overrides):
+    payload = {
+        "category": "flight",
+        "title": "Tokyo to Kyoto",
+        "provider": "ANA",
+        "confirmation": "ANA-1234",
+        "originCode": "HND",
+        "destinationCode": "KIX",
+        "scheduledStart": "2026-04-10T09:00:00",
+        "scheduledEnd": "2026-04-10T10:30:00",
+        "cost": 15000,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _create_owned_trip(client, token):
+    resp = client.post("/api/trips", json=_valid_trip_payload(), headers=_auth_header(token))
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def test_authenticated_owner_can_add_a_flight(client):
+    user = _register(client, name="Flight Adder", email="flight.adder@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert len(body["nodes"]) == 1
+    node = body["nodes"][0]
+    assert node["category"] == "flight"
+    assert node["title"] == "Tokyo to Kyoto"
+    assert node["provider"] == "ANA"
+    assert node["cost"] == 15000
+    assert node["status"] == "healthy"
+    # A lone node has no edges yet - not an invented dependency.
+    assert body["edges"] == []
+
+
+def test_flight_node_is_persisted(client):
+    user = _register(client, name="Persist Tester", email="persist.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+    client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+
+    fetched = client.get(f"/api/trips/{trip['id']}", headers=headers).json()
+    assert len(fetched["nodes"]) == 1
+    assert fetched["nodes"][0]["title"] == "Tokyo to Kyoto"
+
+
+def test_flight_belongs_to_the_requested_owned_trip(client):
+    user = _register(client, name="Owner Tester", email="owner.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip_a = _create_owned_trip(client, user["token"])
+    trip_b = client.post(
+        "/api/trips", json=_valid_trip_payload(name="Second Trip"), headers=headers
+    ).json()
+
+    client.post(f"/api/trips/{trip_a['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+
+    assert len(client.get(f"/api/trips/{trip_a['id']}", headers=headers).json()["nodes"]) == 1
+    assert len(client.get(f"/api/trips/{trip_b['id']}", headers=headers).json()["nodes"]) == 0
+
+
+def test_missing_required_flight_fields_are_rejected(client):
+    user = _register(client, name="Required Tester", email="required.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(title=""), headers=headers)
+    assert resp.status_code == 422
+
+
+def test_invalid_category_is_rejected(client):
+    user = _register(client, name="Category Tester", email="category.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(
+        f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(category="hotel"), headers=headers
+    )
+    assert resp.status_code == 422
+
+
+def test_invalid_airport_code_is_rejected(client):
+    user = _register(client, name="Airport Tester", email="airport.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(
+        f"/api/trips/{trip['id']}/nodes",
+        json=_valid_flight_payload(originCode="TokyoHaneda"),
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_arrival_before_departure_is_rejected(client):
+    user = _register(client, name="Time Tester", email="time.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(
+        f"/api/trips/{trip['id']}/nodes",
+        json=_valid_flight_payload(scheduledStart="2026-04-10T10:30:00", scheduledEnd="2026-04-10T09:00:00"),
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_negative_cost_is_rejected(client):
+    user = _register(client, name="Cost Tester", email="cost.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(
+        f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(cost=-100), headers=headers
+    )
+    assert resp.status_code == 422
+
+
+def test_a_different_authenticated_user_cannot_add_a_flight_to_the_trip(client):
+    owner = _register(client, name="Real Owner", email="real.owner@example.com")
+    trip = _create_owned_trip(client, owner["token"])
+
+    intruder = _register(client, name="Intruder", email="intruder@example.com")
+    resp = client.post(
+        f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=_auth_header(intruder["token"])
+    )
+    assert resp.status_code == 404
+
+    # And the owner's trip genuinely has no flight added by the attempt.
+    fetched = client.get(f"/api/trips/{trip['id']}", headers=_auth_header(owner["token"])).json()
+    assert fetched["nodes"] == []
+
+
+def test_a_different_authenticated_user_cannot_retrieve_the_trip_or_its_flight(client):
+    owner = _register(client, name="Real Owner Two", email="real.owner.two@example.com")
+    headers = _auth_header(owner["token"])
+    trip = _create_owned_trip(client, owner["token"])
+    client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+
+    intruder = _register(client, name="Intruder Two", email="intruder.two@example.com")
+    resp = client.get(f"/api/trips/{trip['id']}", headers=_auth_header(intruder["token"]))
+    assert resp.status_code == 404
+
+
+def test_single_node_zero_edge_trip_has_valid_health_score(client):
+    user = _register(client, name="Health Tester", email="health.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    resp = client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+    assert resp.status_code == 201
+    body = resp.json()
+    assert 0 <= body["healthScore"] <= 100
+    assert body["nodes"][0]["status"] == "healthy"
+
+
+def test_node_and_booking_are_persisted_atomically(client, monkeypatch):
+    """If db.commit() itself never completes, neither the node nor the
+    booking (both already added/flushed into the same session by that
+    point) may be left behind - get_db's rollback-on-exception (see
+    app/database/session.py) is what actually guarantees that, the same
+    mechanism apply_recovery's equivalent test already relies on. Patching
+    Session.commit to fail is a direct test of that guarantee, rather than
+    a seam elsewhere that (as an earlier version of this test mistakenly
+    did) would fire only *after* a real commit already succeeded."""
+    import pytest
+    from sqlalchemy.orm import Session as OrmSession
+
+    user = _register(client, name="Atomic Tester", email="atomic.tester@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    def flaky_commit(self, *args, **kwargs):
+        raise RuntimeError("simulated failure: commit never completes")
+
+    monkeypatch.setattr(OrmSession, "commit", flaky_commit)
+
+    with pytest.raises(RuntimeError, match="simulated failure"):
+        client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+
+    monkeypatch.undo()  # restore the real commit() for the read-only verification below
+
+    fetched = client.get(f"/api/trips/{trip['id']}", headers=headers).json()
+    assert fetched["nodes"] == []
+    bookings = client.get(f"/api/trips/{trip['id']}/bookings", headers=headers).json()
+    assert bookings == []
+
+
 def test_get_activity_and_notifications(client):
     activity = client.get("/api/trips/trip-ladakh-2025/activity")
     assert activity.status_code == 200
