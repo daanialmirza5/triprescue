@@ -1,0 +1,30 @@
+name: triprescue
+
+# Local-development PostgreSQL only. Production uses Supabase Postgres (see
+# docs/DEPLOYMENT.md) - this file has no production purpose and nothing here
+# is deployed anywhere.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: triprescue-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-triprescue}
+      POSTGRES_USER: ${POSTGRES_USER:-triprescue}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker - copy docker.env.example first}
+    ports:
+      # Default host port is 5433, not Postgres' usual 5432, so this doesn't
+      # collide with any other local Postgres you may already have running.
+      # Override POSTGRES_PORT in .env.docker if 5433 is also taken.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - triprescue_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-triprescue} -d ${POSTGRES_DB:-triprescue}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  triprescue_postgres_data:
+    name: triprescue_postgres_data

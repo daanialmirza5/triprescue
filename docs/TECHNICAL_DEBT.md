@@ -8,20 +8,25 @@ tests.
 
 ## Debt items
 
-**[Medium] Non-expiring session tokens.** `app/services/auth_service.py`'s
-`create_token`/`verify_token` embed a timestamp in the HMAC-signed token but
-never check its age - a token remains valid indefinitely once issued, as
-long as `AUTH_SECRET` doesn't change. The auth system's own docstring
-already describes it as "minimal local-development authentication," which
-this is consistent with; it isn't sized for a real deployment.
-*Fix*: reject tokens older than a fixed TTL in `verify_token`.
+**[Medium, resolved] Non-expiring session tokens.**
+`app/services/auth_service.py`'s `verify_token` now rejects any token older
+than `AUTH_TOKEN_TTL_DAYS` (default 30) by checking the timestamp already
+embedded in the HMAC-signed payload against the current time. A token that
+fails verification for any reason (bad signature or expiry) is rejected
+with 401 by `app/api/deps.py:get_current_traveler_id`, not silently
+downgraded to the demo traveler - that fallback only applies when no
+`Authorization` header is sent at all. Covered by
+`app/tests/test_auth.py` (expired/tampered/garbage-token cases) and
+`app/tests/test_config.py`.
 
-**[Medium] No login/register rate limiting.** `app/api/routes/auth.py`'s
-`/login` and `/register` endpoints have no throttling - nothing in
-`requirements.txt` or `app/main.py` rate-limits repeated failed logins or
-account-creation requests at the API layer.
-*Fix*: add a rate-limiting dependency (e.g. `slowapi`) or enforce a limit at
-the reverse-proxy layer before any non-local deployment.
+**[Medium, resolved] No login/register rate limiting.**
+`app/api/routes/auth.py`'s `/login` and `/register` endpoints are now
+rate-limited via `slowapi` (`app/core/rate_limiting.py`), keyed by client
+IP, with configurable limits (`LOGIN_RATE_LIMIT`/`REGISTER_RATE_LIMIT`,
+defaulting to 10/minute and 5/minute) and a 429 response on excess. This is
+in-process/in-memory - fine for the current single-instance deployment, not
+a substitute for a real WAF/edge rate limiter if this ever runs behind
+multiple instances. Covered by `app/tests/test_auth.py`.
 
 **[Low] Large frontend bundle, no code-splitting.** `npm run build`
 currently produces a single ~588 KB (176 KB gzipped) main JS chunk; Vite's
@@ -69,10 +74,33 @@ swapping the `Mock*Provider()` instantiations in `recovery_service.py`; no
 engine changes required. See `docs/FUTURE_ROADMAP.md`'s "Real travel
 providers" section for the same point in more detail.
 
-**No database migration tooling.** Schema changes currently mean deleting
-`triprescue.db` and letting SQLAlchemy's `create_all()` rebuild it - fine
-while there's no persisted user data worth preserving. See
-`docs/FUTURE_ROADMAP.md`.
+**[Resolved] No database migration tooling.** Alembic is now set up
+(`backend/alembic/`), with an initial migration
+(`02f207f86d70_initial_schema.py`) that reproduces the full current schema
+from empty, verified to match `Base.metadata` exactly (see
+`app/tests/test_migrations.py`). `create_all()` still runs automatically
+against SQLite for local-dev convenience only; against Postgres it's
+skipped entirely and `alembic upgrade head` is the only thing that creates
+or changes schema (see `docs/DEPLOYMENT.md`'s "Database migrations"
+section for the exact production procedure).
+
+**SQLite is still the default for local development; production uses
+Supabase PostgreSQL.** A standard web-service host's filesystem (Render's
+included) is typically ephemeral, so a SQLite file in production loses all
+data - every registered user's account and trips - on the next
+restart/redeploy. `app/config.py`'s `resolved_database_url` normalizes both
+`postgres://` and `postgresql://` connection strings to the installed
+psycopg3 driver, so Supabase's connection string works unmodified once set
+as `DATABASE_URL` in Render's environment settings. Local Postgres via
+Docker (`docker-compose.yml`, repo root) is also fully supported for
+development, verified against a real Postgres 16 instance - not just
+SQLite - including connection pooling (`app/database/session.py`'s
+`engine_kwargs_for`, Postgres-only `pool_pre_ping`/pool sizing tuned for a
+hosted, connection-capped database) and the Alembic migration cycle (see
+`app/tests/test_postgres_integration.py`, `app/tests/test_migrations.py`).
+Supabase's free tier currently caps database size at 500 MB - fine for
+development/demo/early-user stage, not assumed to be a permanent ceiling.
+See `docs/DEPLOYMENT.md`.
 
 ## Deferred features
 

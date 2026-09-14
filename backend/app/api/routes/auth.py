@@ -6,10 +6,12 @@ traveler. These endpoints exist so a real login flow can be wired up later
 without redesigning the backend (see docs/FUTURE_ROADMAP.md).
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_traveler_id
+from app.config import get_settings
+from app.core.rate_limiting import limiter
 from app.database.seed import DEFAULT_TRAVELER_ID
 from app.database.session import get_db
 from app.models.traveler import Traveler
@@ -50,14 +52,18 @@ def _auth_response(traveler: Traveler) -> AuthResponse:
 
 
 @router.post("/register", response_model=AuthResponse)
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    existing = db.query(Traveler).filter(Traveler.email == request.email).first()
+@limiter.limit(lambda: get_settings().register_rate_limit)
+def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+    # `request` must be the literal parameter name here (and stay typed as
+    # Request) - slowapi's limiter decorator looks it up from kwargs by that
+    # exact name at call time to find the client's IP.
+    existing = db.query(Traveler).filter(Traveler.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
     traveler = Traveler(
-        name=request.name,
-        email=request.email,
-        password_hash=hash_password(request.password),
+        name=payload.name,
+        email=payload.email,
+        password_hash=hash_password(payload.password),
     )
     db.add(traveler)
     db.commit()
@@ -65,9 +71,10 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    traveler = db.query(Traveler).filter(Traveler.email == request.email).first()
-    if not traveler or not verify_password(request.password, traveler.password_hash):
+@limiter.limit(lambda: get_settings().login_rate_limit)
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    traveler = db.query(Traveler).filter(Traveler.email == payload.email).first()
+    if not traveler or not verify_password(payload.password, traveler.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     return _auth_response(traveler)
 

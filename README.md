@@ -238,8 +238,8 @@ The codebase is thoroughly verified with comprehensive test suites:
 
 | Suite | Status | Details |
 | :--- | :--- | :--- |
-| **Backend Unit & Engine Tests** | **67 / 67 PASS** | Graph, propagation, recovery, scoring, refund, risk, API routes |
-| **Frontend Unit & Component Tests** | **44 / 44 PASS** | State management, graph layout, score rings, badges, context |
+| **Backend Unit & Engine Tests** | **124 / 124 PASS** | Graph, propagation, recovery, scoring, refund, risk, API routes, auth/security, DB migrations, Postgres integration |
+| **Frontend Unit & Component Tests** | **65 / 65 PASS** | State management, graph layout, score rings, badges, context, itinerary-mutation forms |
 | **TypeScript Validation** | **0 Errors** | Strict type-checking clean |
 | **Linting** | **0 Errors** | Clean ESLint compliance |
 | **Production Build** | **SUCCESS** | Vite production bundle compiled |
@@ -277,7 +277,7 @@ npm run typecheck && npm run lint && npm test && npm run build
 ## 26. Live Demo
 - **Frontend Web App**: [https://daanialmirza5.github.io/triprescue/](https://daanialmirza5.github.io/triprescue/)
 - **Backend API**: [https://triprescue-kw9d.onrender.com](https://triprescue-kw9d.onrender.com)
-- **API Health Endpoint**: [https://triprescue-kw9d.onrender.com/api/v1/health](https://triprescue-kw9d.onrender.com/api/v1/health)
+- **API Health Endpoint**: [https://triprescue-kw9d.onrender.com/api/health](https://triprescue-kw9d.onrender.com/api/health)
 
 ## 27. Deployment
 - **Frontend**: Hosted on GitHub Pages as a static SPA bundle.
@@ -306,8 +306,7 @@ TripRescue/
 ├── eslint.config.js            # ESLint configuration
 ├── index.html                  # Frontend entry HTML
 ├── package.json                # Frontend package dependencies
-├── package-lock.json           # NPM dependency lockfile
-├── pnpm-lock.yaml              # PNPM dependency lockfile
+├── package-lock.json           # NPM dependency lockfile (npm is canonical; no pnpm-lock.yaml)
 ├── postcss.config.js           # PostCSS configuration
 ├── tailwind.config.js          # Tailwind CSS styling config
 ├── tsconfig.json               # TypeScript base configuration
@@ -366,7 +365,7 @@ TripRescue/
     ├── pages/                  # Top-level view pages (Overview, LiveMonitor, MapView, Trips, etc.)
     ├── services/               # Frontend API client service
     ├── store/                  # Application and Auth React Context state stores
-    ├── test/                   # Frontend unit test suite (44 tests)
+    ├── test/                   # Frontend unit test suite (65 tests)
     └── types/                  # Shared TypeScript interfaces and type definitions
 ```
 

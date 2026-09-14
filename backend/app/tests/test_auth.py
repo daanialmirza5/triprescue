@@ -102,3 +102,86 @@ def test_a_new_traveler_cannot_disrupt_recover_or_ask_about_a_trip_they_do_not_o
         "/api/trips/trip-ladakh-2025/disruptions", json={"type": "flight-delay", "delayMinutes": 180}, headers=demo_headers
     )
     assert resp.status_code == 200
+
+
+def test_garbage_bearer_token_is_rejected_with_401_not_downgraded_to_demo(client):
+    """A bearer token that fails verification must not be silently treated
+    the same as sending no token at all - that would let a logged-in user
+    whose token just broke quietly start acting as the demo traveler."""
+    resp = client.get("/api/trips", headers=_auth_header("not-a-real-token"))
+    assert resp.status_code == 401
+
+
+def test_tampered_token_is_rejected_with_401(client):
+    registered = _register(client)
+    token = registered["token"]
+    tampered = token[:-1] + ("A" if not token.endswith("A") else "B")
+    resp = client.get("/api/trips", headers=_auth_header(tampered))
+    assert resp.status_code == 401
+
+
+def test_expired_token_is_rejected_with_401_not_downgraded_to_demo(client, monkeypatch):
+    """Tokens carry a 30-day TTL (auth_token_ttl_days). A token issued well
+    past that must be rejected outright, not fall back to the demo account -
+    the whole point of expiry is that the session actually ends."""
+    registered = _register(client)
+
+    thirty_one_days_ago = __import__("time").time() - (31 * 86400)
+    monkeypatch.setattr("app.services.auth_service.time.time", lambda: thirty_one_days_ago)
+    from app.services.auth_service import create_token
+
+    expired_token = create_token(registered["travelerId"])
+    monkeypatch.undo()  # restore real time before the token is verified
+
+    resp = client.get("/api/trips", headers=_auth_header(expired_token))
+    assert resp.status_code == 401
+
+
+def test_token_well_within_the_ttl_is_still_accepted(client, monkeypatch):
+    registered = _register(client)
+
+    one_day_ago = __import__("time").time() - 86400
+    monkeypatch.setattr("app.services.auth_service.time.time", lambda: one_day_ago)
+    from app.services.auth_service import create_token
+
+    fresh_enough_token = create_token(registered["travelerId"])
+    monkeypatch.undo()
+
+    resp = client.get("/api/trips", headers=_auth_header(fresh_enough_token))
+    assert resp.status_code == 200
+
+
+def test_excessive_registration_attempts_are_rate_limited(client):
+    for i in range(5):  # default register_rate_limit is 5/minute
+        resp = client.post(
+            "/api/auth/register", json={"name": "Spammer", "email": f"spam{i}@example.com", "password": "x"}
+        )
+        assert resp.status_code == 200, resp.text
+
+    resp = client.post(
+        "/api/auth/register", json={"name": "Spammer", "email": "spam-over-limit@example.com", "password": "x"}
+    )
+    assert resp.status_code == 429
+
+
+def test_excessive_login_attempts_are_rate_limited(client):
+    _register(client)
+    for _ in range(10):  # default login_rate_limit is 10/minute
+        resp = client.post("/api/auth/login", json={"email": "test.traveler@example.com", "password": "wrong"})
+        assert resp.status_code == 401
+
+    resp = client.post("/api/auth/login", json={"email": "test.traveler@example.com", "password": "wrong"})
+    assert resp.status_code == 429
+
+
+def test_rate_limiting_does_not_block_ordinary_usage(client):
+    """A handful of legitimate attempts, well under either limit, must never
+    trip the limiter - it exists to stop abuse, not normal traffic."""
+    for i in range(3):
+        resp = client.post(
+            "/api/auth/register", json={"name": "Normal User", "email": f"normal{i}@example.com", "password": "x"}
+        )
+        assert resp.status_code == 200, resp.text
+
+    resp = client.post("/api/auth/login", json={"email": "normal0@example.com", "password": "x"})
+    assert resp.status_code == 200, resp.text

@@ -5,10 +5,21 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import models  # noqa: F401  (register models on Base.metadata)
+from app.core.rate_limiting import reset_rate_limits
 from app.database.base import Base
 from app.database.seed import seed_if_empty
 from app.database.session import get_db
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    # The login/register limiter is a module-level singleton keyed by client
+    # IP, and TestClient always presents as the same fake IP - without this,
+    # attempts recorded by one test's login/register calls would carry over
+    # and trip the limiter in the next, unrelated test.
+    reset_rate_limits()
+    yield
 
 
 @pytest.fixture()

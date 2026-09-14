@@ -46,7 +46,14 @@ def create_token(traveler_id: str) -> str:
 
 
 def verify_token(token: str) -> str | None:
-    secret = get_settings().auth_secret.encode()
+    """Returns the traveler id for a valid, unexpired token - or None if the
+    token is malformed, has a bad signature, or is older than
+    `auth_token_ttl_days`. The issued-at timestamp embedded in the token
+    (see `create_token`) is what's checked; there's no separate revocation
+    list, so expiry is the only way a token stops working before its holder
+    logs in again."""
+    settings = get_settings()
+    secret = settings.auth_secret.encode()
     try:
         decoded = base64.urlsafe_b64decode(token.encode()).decode()
         traveler_id, ts, signature = decoded.rsplit(":", 2)
@@ -55,5 +62,12 @@ def verify_token(token: str) -> str | None:
     payload = f"{traveler_id}:{ts}"
     expected = hmac.new(secret, payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
+        return None
+    try:
+        issued_at = int(ts)
+    except ValueError:
+        return None
+    max_age_seconds = settings.auth_token_ttl_days * 86400
+    if time.time() - issued_at > max_age_seconds:
         return None
     return traveler_id
