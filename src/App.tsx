@@ -144,7 +144,7 @@ function AppContent() {
         )}
 
         <main className="flex-1 overflow-y-auto scrollbar-thin p-6">
-          {noTripFound ? (
+          {noTripFound && page !== 'trips' ? (
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-ink-700 bg-ink-900">
@@ -152,9 +152,15 @@ function AppContent() {
                 </div>
                 <h2 className="text-lg font-semibold text-ink-100">You don't have any trips yet</h2>
                 <p className="mt-2 text-sm text-ink-400">
-                  Trip creation isn't available yet. In the meantime, you can log out and explore
-                  the product with the seeded demo traveler from the login screen.
+                  Create your first trip to get started, or log out and explore the product with
+                  the seeded demo traveler from the login screen.
                 </p>
+                <button
+                  onClick={() => handleNavigate('trips')}
+                  className="mt-4 rounded-lg bg-gradient-to-r from-accent-500 to-electric-600 px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+                >
+                  Go to My Trips
+                </button>
               </div>
             </div>
           ) : (

@@ -239,6 +239,7 @@ const initialState: AppState = {
 interface AppContextValue extends AppState {
   reload: () => Promise<void>;
   switchTrip: (tripId: string) => void;
+  createTrip: (req: api.TripCreateRequest) => Promise<Trip>;
   triggerDisruption: (type: string, options?: { primaryNodeId?: string; delayMinutes?: number }) => Promise<void>;
   loadRecoveryOptions: () => Promise<void>;
   selectRecovery: (id: string | null) => void;
@@ -297,6 +298,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'LOAD_SUCCESS', trip, activityLog, notifications, preferences });
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
+        // state.tripId is never persisted (no localStorage) - a fresh page
+        // load, or a first login for anyone but the seeded demo traveler,
+        // always starts from the hardcoded DEFAULT_TRIP_ID, which a real
+        // user who has created their own trip doesn't own. Before concluding
+        // there's genuinely no trip to show, check whether this traveler
+        // owns any trip at all and switch to it - this is what makes a
+        // freshly created trip survive a browser refresh rather than
+        // bouncing back to the seeded trip's 404 every time.
+        try {
+          const trips = await api.listTrips();
+          if (trips.length > 0) {
+            dispatch({ type: 'SWITCH_TRIP', tripId: trips[0].id });
+            return;
+          }
+        } catch {
+          // Fall through to the honest "no trips" state below.
+        }
         dispatch({ type: 'TRIP_NOT_FOUND' });
         return;
       }
@@ -313,6 +331,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SWITCH_TRIP', tripId });
     },
     [state.tripId, clearTimers]
+  );
+
+  const createTrip = useCallback(
+    async (req: api.TripCreateRequest) => {
+      const trip = await api.createTrip(req);
+      // Reuses the exact same mechanism a manual trip switch uses - the new
+      // trip becomes active and its real, backend-persisted data loads via
+      // the existing reload() effect, the same path every other trip load
+      // goes through (never a client-side guess at what was just created).
+      switchTrip(trip.id);
+      return trip;
+    },
+    [switchTrip]
   );
 
   useEffect(() => {
@@ -474,6 +505,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...state,
         reload,
         switchTrip,
+        createTrip,
         triggerDisruption,
         loadRecoveryOptions,
         selectRecovery,

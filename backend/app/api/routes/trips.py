@@ -7,7 +7,7 @@ from app.schemas.activity import ActivityEventOut
 from app.schemas.common import TravelerPreferences
 from app.schemas.notification import NotificationOut
 from app.schemas.risk import RiskAnalysisOut
-from app.schemas.trip import BookingOut, TripOut, TripSummaryOut
+from app.schemas.trip import BookingOut, TripCreateRequest, TripOut, TripSummaryOut
 from app.services import risk_service, trip_service
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
@@ -16,6 +16,26 @@ router = APIRouter(prefix="/api/trips", tags=["trips"])
 @router.get("", response_model=list[TripSummaryOut])
 def list_trips(db: Session = Depends(get_db), traveler_id: str = Depends(get_current_traveler_id)):
     return trip_service.list_trip_summaries(db, traveler_id)
+
+
+@router.post("", response_model=TripOut, status_code=201)
+def create_trip(
+    request: TripCreateRequest,
+    db: Session = Depends(get_db),
+    traveler_id: str = Depends(get_current_traveler_id),
+):
+    # traveler_id comes exclusively from the auth dependency above - never
+    # from `request`, which has no traveler/owner field at all - so a client
+    # cannot create a trip on another traveler's behalf.
+    return trip_service.create_trip(
+        db,
+        traveler_id,
+        request.name,
+        request.origin,
+        request.destination,
+        request.start_date,
+        request.end_date,
+    )
 
 
 @router.get("/{trip_id}", response_model=TripOut)

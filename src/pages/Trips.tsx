@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { ScoreRing } from '@/components/ui/ScoreRing';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { CardSkeleton } from '@/components/ui/Skeleton';
+import { CreateTripModal } from '@/components/trip/CreateTripModal';
 import { formatCurrency } from '@/lib/status';
 import * as api from '@/services/api';
 import { Plane, MapPin, Calendar, ArrowRight, Plus, AlertTriangle } from 'lucide-react';
@@ -17,9 +18,11 @@ function statusFor(status: string): 'healthy' | 'recovered' | 'broken' {
 }
 
 export function Trips({ onNavigate }: TripsProps) {
-  const { trip, tripId, switchTrip } = useApp();
+  const { trip, tripId, switchTrip, noTripFound } = useApp();
   const [summaries, setSummaries] = useState<api.TripSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const hasCurrentTrip = !noTripFound;
 
   const loadTrips = () => {
     let cancelled = false;
@@ -45,7 +48,7 @@ export function Trips({ onNavigate }: TripsProps) {
   // trip" summary card (if it appears in the other-trips list too) stays
   // in sync without a manual refresh.
 
-  const otherTrips = (summaries ?? []).filter((s) => s.id !== tripId);
+  const otherTrips = hasCurrentTrip ? (summaries ?? []).filter((s) => s.id !== tripId) : (summaries ?? []);
 
   const handleSwitch = (id: string) => {
     switchTrip(id);
@@ -60,48 +63,59 @@ export function Trips({ onNavigate }: TripsProps) {
           <p className="mt-1 text-sm text-ink-400">Manage and monitor your travel itineraries.</p>
         </div>
         <button
-          disabled
-          title="Creating new trips isn't available yet - this demo works against seeded itineraries."
-          className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-500 opacity-60"
+          onClick={() => setCreateOpen(true)}
+          className="flex items-center gap-2 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100"
         >
           <Plus className="h-3.5 w-3.5" />
           New Trip
         </button>
       </div>
 
-      <div className="glass rounded-xl p-5 hover:border-ink-500/40 transition cursor-pointer" onClick={() => onNavigate('trip-detail')}>
-        <div className="flex items-start gap-5">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500/20 to-electric-600/10 border border-accent-500/20">
-            <Plane className="h-7 w-7 text-accent-600" />
-          </div>
+      <CreateTripModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false);
+          loadTrips();
+          onNavigate('trip-detail');
+        }}
+      />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base font-semibold text-ink-100">{trip.name}</h2>
-              <StatusBadge status={statusFor(trip.status)} />
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-ink-400">
-              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {trip.route}</span>
-              <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {trip.startDate} — {trip.endDate}</span>
-              <span>{trip.nodes.length} nodes · {trip.edges.length} dependencies</span>
+      {hasCurrentTrip && (
+        <div className="glass rounded-xl p-5 hover:border-ink-500/40 transition cursor-pointer" onClick={() => onNavigate('trip-detail')}>
+          <div className="flex items-start gap-5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500/20 to-electric-600/10 border border-accent-500/20">
+              <Plane className="h-7 w-7 text-accent-600" />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <TripStat label="Trip value" value={formatCurrency(trip.tripValue)} />
-              <TripStat label="Nodes" value={`${trip.nodes.length}`} />
-              <TripStat label="Days" value={`${trip.days.length}`} />
-              <TripStat label="Status" value={trip.status === 'operational' ? 'Operational' : trip.status === 'recovered' ? 'Recovered' : 'Disrupted'} valueClass={trip.status === 'operational' ? 'text-emerald-600' : trip.status === 'recovered' ? 'text-accent-600' : 'text-red-600'} />
-            </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3">
+                <h2 className="text-base font-semibold text-ink-100">{trip.name}</h2>
+                <StatusBadge status={statusFor(trip.status)} />
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-ink-400">
+                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {trip.route}</span>
+                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {trip.startDate} — {trip.endDate}</span>
+                <span>{trip.nodes.length} nodes · {trip.edges.length} dependencies</span>
+              </div>
 
-          <div className="flex flex-col items-center gap-2">
-            <ScoreRing score={trip.healthScore} size={80} strokeWidth={6} label="Health" />
-            <button onClick={() => onNavigate('trip-detail')} className="flex items-center gap-1 text-[10px] text-accent-600 transition hover:text-accent-700">
-              View details <ArrowRight className="h-3 w-3" />
-            </button>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <TripStat label="Trip value" value={formatCurrency(trip.tripValue)} />
+                <TripStat label="Nodes" value={`${trip.nodes.length}`} />
+                <TripStat label="Days" value={`${trip.days.length}`} />
+                <TripStat label="Status" value={trip.status === 'operational' ? 'Operational' : trip.status === 'recovered' ? 'Recovered' : 'Disrupted'} valueClass={trip.status === 'operational' ? 'text-emerald-600' : trip.status === 'recovered' ? 'text-accent-600' : 'text-red-600'} />
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <ScoreRing score={trip.healthScore} size={80} strokeWidth={6} label="Health" />
+              <button onClick={() => onNavigate('trip-detail')} className="flex items-center gap-1 text-[10px] text-accent-600 transition hover:text-accent-700">
+                View details <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {loadError ? (
         <div className="glass flex flex-col items-center gap-3 rounded-xl border border-red-500/20 p-8 text-center">
@@ -124,12 +138,12 @@ export function Trips({ onNavigate }: TripsProps) {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-ink-700 bg-white">
             <Plus className="h-5 w-5 text-ink-500" />
           </div>
-          <p className="text-sm text-ink-400">No other trips planned yet.</p>
+          <p className="text-sm text-ink-400">{hasCurrentTrip ? 'No other trips planned yet.' : "You don't have any trips yet."}</p>
           <p className="mt-1 text-xs text-ink-500">Add a new trip to start monitoring its dependencies.</p>
         </div>
       ) : (
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-ink-100">Other Trips</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink-100">{hasCurrentTrip ? 'Other Trips' : 'Your Trips'}</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {otherTrips.map((summary) => (
               <button

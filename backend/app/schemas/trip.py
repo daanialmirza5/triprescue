@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
+
+from pydantic import Field, model_validator
 
 from app.schemas.base import CamelModel
 
@@ -86,6 +88,25 @@ class TripSummaryOut(CamelModel):
     status: str
     node_count: int
     edge_count: int
+
+
+class TripCreateRequest(CamelModel):
+    name: str = Field(min_length=1)
+    origin: str = Field(min_length=1)
+    destination: str = Field(min_length=1)
+    start_date: str = Field(min_length=1, description="ISO date, e.g. 2026-03-05")
+    end_date: str = Field(min_length=1, description="ISO date, e.g. 2026-03-09")
+
+    @model_validator(mode="after")
+    def _validate_date_range(self) -> "TripCreateRequest":
+        try:
+            start = date.fromisoformat(self.start_date)
+            end = date.fromisoformat(self.end_date)
+        except ValueError as exc:
+            raise ValueError("Dates must be in YYYY-MM-DD format.") from exc
+        if end < start:
+            raise ValueError("End date cannot be before start date.")
+        return self
 
 
 class BookingOut(CamelModel):
