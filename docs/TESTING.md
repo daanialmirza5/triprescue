@@ -50,14 +50,17 @@ HTTP-layer tests (`backend/app/tests/conftest.py`'s `client` fixture: a
   `test_recovered_trip_remains_re_disruptable_without_a_reset` (disrupt →
   recover → apply → **without resetting** → disrupt again, and recovery
   generation still works on top of that).
-- `test_auth.py` - register/login/demo-account/`/me`, and trip-ownership
-  isolation (a new traveler starts with zero trips and gets a 404 on a trip
-  they don't own).
+- `test_auth.py` - register/login/demo-account/`/me`, trip-ownership
+  isolation on read routes (a new traveler starts with zero trips and gets a
+  404 on a trip they don't own), and trip-ownership isolation on every
+  mutation route too -
+  `test_a_new_traveler_cannot_disrupt_recover_or_ask_about_a_trip_they_do_not_own`
+  asserts a non-owner gets a 404 from `/disruptions`, `/simulate`,
+  `/recovery-options/generate`, `/recovery/apply`, and `/api/assistant`,
+  then confirms the actual owner can still do all five.
 
 ### What's deliberately NOT covered
 
-- Disruption/recovery/assistant mutation routes don't check trip ownership
-  yet (see `docs/FUTURE_ROADMAP.md`), so there's no test asserting they do.
 - No test exercises a real Anthropic API call (`_llm_answer`) - the test
   environment never sets `ANTHROPIC_API_KEY`, so the assistant always
   exercises the deterministic path; that's intentional (tests must not
