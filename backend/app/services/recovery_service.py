@@ -147,7 +147,7 @@ def generate_recovery_options(db: Session, trip_id: str, traveler_id: str | None
     db.flush()
 
     preferences = trip.traveler.preferences
-    plans = _recovery_engine.generate_plans(
+    all_candidates = _recovery_engine.generate_plans(
         nodes=engine_nodes,
         edges=engine_edges,
         impacts=impacts,
@@ -157,6 +157,13 @@ def generate_recovery_options(db: Session, trip_id: str, traveler_id: str | None
         detected_at=disruption.detected_at,
         preferences=preferences,
     )
+    # RecoveryEngine.generate_plans() returns its raw, unscored candidates
+    # when none of them are feasible (see its own "surface why nothing was
+    # feasible" comment) - those candidates have no score_breakdown, so they
+    # can't be persisted/serialized as a real recovery option. Treat "every
+    # candidate was infeasible" the same as "no candidates at all": an
+    # honest empty result, not a crash.
+    plans = [p for p in all_candidates if p.feasible]
 
     db_plans = [_persist_plan(db, trip_id, disruption.id, p) for p in plans]
 
