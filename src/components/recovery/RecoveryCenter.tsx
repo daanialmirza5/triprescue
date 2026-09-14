@@ -28,7 +28,7 @@ export function RecoveryCenter() {
     }
   };
 
-  if (recoveryOptions.length === 0 && phase !== 'recovered') {
+  if (phase === 'idle') {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="max-w-md text-center">
@@ -37,6 +37,29 @@ export function RecoveryCenter() {
           </div>
           <h2 className="text-lg font-semibold text-ink-100">No Active Disruption</h2>
           <p className="mt-2 text-sm text-ink-400">Recovery strategies will appear here when a disruption is detected. Try simulating a disruption from the command center.</p>
+        </div>
+      </div>
+    );
+  }
+
+  {/* Distinct from the "idle" case above: a disruption IS active, but the
+      recovery engine could not find any feasible alternative for it (e.g.
+      no route/date match in the current demo dataset) - telling the user
+      "no active disruption" here would directly contradict the disruption
+      banner still showing in the top bar, so it needs its own honest state. */}
+  if (recoveryOptions.length === 0 && phase !== 'recovered') {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="max-w-md text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/5">
+            <AlertCircle className="h-7 w-7 text-red-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-ink-100">No Feasible Recovery Options</h2>
+          <p className="mt-2 text-sm text-ink-400">
+            {activeDisruption
+              ? `TripRescue could not find a feasible recovery for "${activeDisruption.label}" using the currently available demo data.`
+              : 'No feasible recovery options were found for this disruption using the currently available demo data.'}
+          </p>
         </div>
       </div>
     );
