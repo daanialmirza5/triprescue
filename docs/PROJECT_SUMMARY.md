@@ -38,7 +38,7 @@ The frontend never computes an authoritative risk score, recovery ranking, finan
 
 **AI Assistant:** grounded exclusively in live engine output (current trip/disruption/recovery/risk state passed as structured context) — never invents facts. Deterministic keyword-based responder always available; optional real LLM (Anthropic) layered on top when `ANTHROPIC_API_KEY` is set, with graceful, logged fallback on any LLM failure.
 
-**Tests:** 66 pytest tests — engine unit tests (graph/propagation/recovery/risk/financial/refund), HTTP integration tests, the full hero scenario end-to-end (including re-disruption on an already-recovered trip *without* a reset), and auth/ownership tests (a non-owning traveler is verified blocked from every mutation endpoint, not just reads).
+**Tests:** 124 pytest tests as of the latest count (was 66 when this document was first written) — engine unit tests (graph/propagation/recovery/risk/financial/refund), HTTP integration tests, the full hero scenario end-to-end (including re-disruption on an already-recovered trip *without* a reset), auth/ownership tests (a non-owning traveler is verified blocked from every mutation endpoint, not just reads), token expiry/rate-limiting/AUTH_SECRET enforcement, and Alembic migration parity. See `docs/TESTING.md` for the current, maintained breakdown.
 
 ## 3. Frontend (`src/`)
 
@@ -48,7 +48,7 @@ The frontend never computes an authoritative risk score, recovery ranking, finan
 
 **Auth:** a real login screen (login / register / "Continue as Demo Traveler"), bearer token persisted and attached to every request, real authenticated identity shown in the Sidebar/Settings, working logout.
 
-**Tests:** 44 Vitest + React Testing Library tests — pure-logic units (formatting, risk thresholds, the graph auto-layout algorithm), presentational component tests, and `AppContext` integration tests (load, trip-switch, the full disruption→recovery→apply flow, error handling) against a mocked API layer.
+**Tests:** 65 Vitest + React Testing Library tests as of the latest count (was 44 when this document was first written) — pure-logic units (formatting, risk thresholds, the graph auto-layout algorithm), presentational component tests, `AppContext` integration tests (load, trip-switch, the full disruption→recovery→apply flow, error handling) against a mocked API layer, and the trip-creation/add-flight form components. See `docs/TESTING.md` for the current, maintained breakdown.
 
 ## 4. The hackathon presentation
 
@@ -67,14 +67,14 @@ A full audit against a 61-section acceptance specification (four parallel resear
 - **Itinerary graph nodes were hover-only** — meaning full node detail (schedule, risk %, cost, cancellation policy) was completely unreachable on any touch device, since phones/tablets have no hover. Clicking/tapping a node now pins the same detail panel open, staying live through a cascade animation, with a close button.
 - **A hardcoded disruption banner** in Recovery Center always displayed "Delhi → Leh connection unavailable / CRITICAL" regardless of the actual active disruption — would show the wrong text for any other scenario. Now reads the real disruption's label and impact level.
 - **Trip ownership was only enforced on read endpoints**, not on disrupt/simulate/propagate/generate-recovery/apply-recovery/ask-assistant. Closed — verified live against the running server that a genuinely different, newly-registered traveler gets a real 404 attempting to disrupt someone else's trip.
-- Assorted: missing empty states (notification bell, trip switcher), an overly-broad exception handler masking real DB errors as "not found," a silently-swallowed LLM failure (now logged), an insecure-default `AUTH_SECRET` now warned about at startup, a DB-connectivity health check (was a bare `{"status":"ok"}`), removed an unused dependency (`@supabase/supabase-js`) and ~250 lines of dead mock data.
+- Assorted: missing empty states (notification bell, trip switcher), an overly-broad exception handler masking real DB errors as "not found," a silently-swallowed LLM failure (now logged), an insecure-default `AUTH_SECRET` (originally just warned about at startup; the app now refuses to start on it outside `environment="development"` - see `docs/TECHNICAL_DEBT.md`), a DB-connectivity health check (was a bare `{"status":"ok"}`), removed an unused dependency (`@supabase/supabase-js`) and ~250 lines of dead mock data.
 
 **Documentation added:** `docs/DEPLOYMENT.md` (production startup, environment checklist, what's deliberately not included and why) and `docs/TESTING.md` (full test-suite inventory and how to extend it) — both were missing. README updated with an environment-variable table, Demo Mode section, and deployment pointer.
 
 ## 6. Verification — actually run, not assumed
 
-- **Backend:** `pytest app/tests -q` → **66 passed**.
-- **Frontend:** `npm run typecheck` (0 errors) · `npm run lint` (0 errors, 4 pre-existing benign warnings) · `npx vitest run` → **44 passed** · `npm run build` (succeeds).
+- **Backend:** `pytest app/tests -q` → **66 passed** at the time this was written; **124 passed** as of the latest count (see `docs/TESTING.md`).
+- **Frontend:** `npm run typecheck` (0 errors) · `npm run lint` (0 errors, 4 pre-existing benign warnings) · `npx vitest run` → **44 passed** at the time this was written; **65 passed** as of the latest count · `npm run build` (succeeds).
 - **Live browser (Playwright), full hero flow:** login → healthy trip → Risk Intelligence → trigger 3h delay → cascade → impact analysis (real ₹ figures, real cascade reasons) → 3 ranked recovery options → preference change reorders them → apply → real AI-assistant answer grounded in actual scores → activity log → reset → Demo Mode run twice → a second disruption triggered on the already-recovered trip without resetting. **Zero console errors, zero page errors, zero failed/5xx requests** across the entire run.
 - **Production-style backend startup** (no `--reload`, real `ENVIRONMENT`/`AUTH_SECRET`) verified independently on a scratch port.
 - **Responsive check** at 375px and 768px: no horizontal overflow, no console errors, visually confirmed clean layouts.
@@ -84,8 +84,8 @@ A full audit against a 61-section acceptance specification (four parallel resear
 
 - **No Docker** — assessed and consciously skipped; both halves (a Python venv + uvicorn, a static `dist/` build) run directly without enough real friction to justify container packaging at this size. Reasoning is in `docs/DEPLOYMENT.md`.
 - **No real map/travel-provider integration** — mock providers only, by design (no paid dependency for a prototype). The provider interface (`app/providers/base.py`) is the seam for swapping in a real one later.
-- **No database migration tooling** — schema changes mean recreating the SQLite file. Fine pre-launch; introduce Alembic once there's real user data worth preserving across a change.
-- **Not yet a git repository** — left for you to initialize when ready. One thing to check before a first commit: the repo root's `.env` file contains real (non-placeholder) API credentials for an unrelated tool, not a TripRescue secret — `.gitignore` already excludes it, but confirm that holds before `git add -A`.
+- **[Resolved since this document was written] Database migration tooling** — Alembic is now set up (`backend/alembic/`); see `docs/DEPLOYMENT.md`'s "Database migrations" section and `docs/TECHNICAL_DEBT.md`.
+- **[Stale]** This document originally noted the project wasn't yet a git repository and flagged a root `.env` file. Neither is current: this is a git repository, and no root `.env` file exists (only `.env.example` templates) — kept here as a record of an earlier state, not current guidance.
 
 ---
 
