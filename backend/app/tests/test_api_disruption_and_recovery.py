@@ -141,3 +141,32 @@ def test_reset_restores_healthy_state(client):
     assert body["status"] == "operational"
     assert body["healthScore"] == 87
     assert all(n["status"] == "healthy" for n in body["nodes"])
+
+
+def test_transfer_failure_returns_honest_empty_options_not_a_500(client):
+    """Regression test: transfer-failure's only candidate rebooks the exact
+    node PropagationEngine's direct disruption override always re-marks
+    'broken' on every re-propagation (see app/engines/propagation_engine.py's
+    apply_disruption_override), so it can never be feasible. Generating
+    options used to crash with a 500 (ScoreBreakdownOut(**{}) on an unscored,
+    infeasible candidate) instead of returning an honest empty list."""
+    resp = client.post("/api/trips/trip-ladakh-2025/disruptions", json={"type": "transfer-failure"})
+    assert resp.status_code == 200
+
+    resp = client.post("/api/trips/trip-ladakh-2025/recovery-options/generate")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_missed_connection_returns_honest_empty_options_not_a_500(client):
+    """Regression test: missed-connection's primary node (a CONNECTION, not a
+    bookable category) can never be marked non-broken by any simulated
+    recovery, so every candidate for the downstream flight it breaks is
+    permanently infeasible. Same crash class as the transfer-failure case
+    above - must be an honest empty list, not a 500."""
+    resp = client.post("/api/trips/trip-ladakh-2025/disruptions", json={"type": "missed-connection"})
+    assert resp.status_code == 200
+
+    resp = client.post("/api/trips/trip-ladakh-2025/recovery-options/generate")
+    assert resp.status_code == 200
+    assert resp.json() == []
