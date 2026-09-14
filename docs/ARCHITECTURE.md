@@ -57,9 +57,12 @@ SQLite via SQLAlchemy, with a normalized schema (nodes, edges, bookings,
 disruptions, recovery plans/actions, risk snapshots, activity, notifications
 all as their own tables with foreign keys - see `DATA_MODEL.md`). There is no
 migration framework; `Base.metadata.create_all()` runs on startup, which is
-sufficient for a SQLite-backed local-dev app with no production deployment
-yet. If the schema needs to evolve after real data exists, introduce Alembic
-at that point rather than before it's needed.
+sufficient while the only deployment target is a demo/staging one with no
+persisted real-user data - a live Render deployment exists (kept warm by
+`.github/workflows/keepalive.yml`), but it serves the same seeded/resettable
+demo trips as local dev, not real customer records. If the schema needs to
+evolve after real data exists, introduce Alembic at that point rather than
+before it's needed.
 
 Seeding (`app/database/seed.py`) is idempotent: it only seeds if the demo
 traveler doesn't already exist. Each trip has a dedicated `build_*_trip`
