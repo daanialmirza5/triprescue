@@ -1,8 +1,11 @@
+import re
 from datetime import date, datetime
 
 from pydantic import Field, model_validator
 
 from app.schemas.base import CamelModel
+
+_AIRPORT_CODE_RE = re.compile(r"^[A-Za-z]{3}$")
 
 
 class NodeOut(CamelModel):
@@ -106,6 +109,37 @@ class TripCreateRequest(CamelModel):
             raise ValueError("Dates must be in YYYY-MM-DD format.") from exc
         if end < start:
             raise ValueError("End date cannot be before start date.")
+        return self
+
+
+class NodeCreateRequest(CamelModel):
+    """Only category='flight' is currently supported - see
+    trip_service.add_flight_node. The field still exists (rather than being
+    hardcoded) so the same request shape extends to other node types later
+    without a breaking change."""
+
+    category: str
+    title: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    confirmation: str = Field(min_length=1)
+    origin_code: str = Field(min_length=1)
+    destination_code: str = Field(min_length=1)
+    scheduled_start: datetime
+    scheduled_end: datetime
+    cost: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _validate(self) -> "NodeCreateRequest":
+        if self.category != "flight":
+            raise ValueError(f"Unsupported category: '{self.category}'. Only 'flight' is currently supported.")
+        if not _AIRPORT_CODE_RE.match(self.origin_code):
+            raise ValueError("Origin airport code must be a 3-letter code (e.g. DEL).")
+        if not _AIRPORT_CODE_RE.match(self.destination_code):
+            raise ValueError("Destination airport code must be a 3-letter code (e.g. BOM).")
+        self.origin_code = self.origin_code.upper()
+        self.destination_code = self.destination_code.upper()
+        if self.scheduled_end < self.scheduled_start:
+            raise ValueError("Arrival cannot be before departure.")
         return self
 
 

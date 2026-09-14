@@ -17,3 +17,8 @@ class NodeRepository:
 
     def list_edges_for_trip(self, trip_id: str) -> list[DependencyEdge]:
         return list(self.db.scalars(select(DependencyEdge).where(DependencyEdge.trip_id == trip_id)))
+
+    def save(self, node: ItineraryNode) -> ItineraryNode:
+        self.db.add(node)
+        self.db.flush()
+        return node
