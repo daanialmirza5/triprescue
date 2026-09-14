@@ -134,6 +134,73 @@ describe('AppContext', () => {
     expect(result.current.error).toBe('Backend unreachable');
   });
 
+  it('does not display the seeded demo trip for a new user who owns no trip (404)', async () => {
+    vi.mocked(api.getItinerary).mockRejectedValue(new api.ApiError('Trip not found', 404));
+
+    const { result } = renderHook(() => useApp(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.noTripFound).toBe(true);
+    expect(result.current.error).toBeNull();
+    // Never the seeded Ladakh trip (or any fabricated-looking data) - a
+    // genuinely empty, non-misleading placeholder.
+    expect(result.current.trip.name).toBe('');
+    expect(result.current.trip.nodes).toEqual([]);
+    expect(result.current.trip.tripValue).toBe(0);
+    expect(result.current.trip.healthScore).toBe(0);
+  });
+
+  it('clears stale trip state when a subsequent load 404s (switching into an unowned trip)', async () => {
+    vi.mocked(api.getItinerary).mockResolvedValue(baseTrip());
+    const { result } = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.trip.name).toBe('Test Trip');
+    expect(result.current.noTripFound).toBe(false);
+
+    vi.mocked(api.getItinerary).mockRejectedValue(new api.ApiError('Trip not found', 404));
+    act(() => {
+      result.current.switchTrip('someone-elses-trip');
+    });
+
+    await waitFor(() => expect(result.current.noTripFound).toBe(true));
+    // The previously-loaded real trip's data must not linger.
+    expect(result.current.trip.name).toBe('');
+    expect(result.current.trip.nodes).toEqual([]);
+    expect(result.current.activeDisruption).toBeNull();
+    expect(result.current.recoveryOptions).toEqual([]);
+  });
+
+  it('still loads and renders a real owned trip normally (demo or otherwise), with noTripFound false', async () => {
+    vi.mocked(api.getItinerary).mockResolvedValue(baseTrip());
+
+    const { result } = renderHook(() => useApp(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.noTripFound).toBe(false);
+    expect(result.current.trip.name).toBe('Test Trip');
+    expect(result.current.trip.nodes.length).toBeGreaterThan(0);
+  });
+
+  it('does not leak trip state between separate sessions (e.g. logout then a different user logging in)', async () => {
+    vi.mocked(api.getItinerary).mockResolvedValueOnce(baseTrip({ name: 'First User Trip' }));
+    const first = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    expect(first.result.current.trip.name).toBe('First User Trip');
+
+    // AppProvider is only ever mounted while authenticated (see App.tsx's
+    // Gate()) - logging out unmounts it entirely, so a fresh login always
+    // gets a brand-new provider instance starting from a clean initial
+    // state, never whatever the previous session last held.
+    vi.mocked(api.getItinerary).mockRejectedValueOnce(new api.ApiError('Trip not found', 404));
+    const second = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+
+    expect(second.result.current.trip.name).toBe('');
+    expect(second.result.current.noTripFound).toBe(true);
+    // The first session's own state is unaffected by the second mounting.
+    expect(first.result.current.trip.name).toBe('First User Trip');
+  });
+
   it('resets disruption/recovery state and reloads when switching trips', async () => {
     vi.mocked(api.getItinerary).mockResolvedValue(baseTrip());
     const { result } = renderHook(() => useApp(), { wrapper });

@@ -15,7 +15,7 @@ import { ActivityPage } from '@/pages/ActivityPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TripDetail } from '@/pages/TripDetail';
 import { AIAssistant } from '@/components/ai/AIAssistant';
-import { LifeBuoy, WifiOff } from 'lucide-react';
+import { LifeBuoy, WifiOff, Briefcase } from 'lucide-react';
 
 type ExtendedPage = PageId | 'trip-detail';
 
@@ -43,6 +43,7 @@ function AppContent() {
     recoveryOptions,
     error,
     reload,
+    noTripFound,
   } = useApp();
   const { addToast } = useToast();
   const demoCancelledRef = useRef(false);
@@ -143,16 +144,31 @@ function AppContent() {
         )}
 
         <main className="flex-1 overflow-y-auto scrollbar-thin p-6">
-          <div key={page} className="animate-fade-in">
-            {page === 'overview' && <Overview onNavigate={handleNavigate} />}
-            {page === 'trips' && <Trips onNavigate={handleNavigate} />}
-            {page === 'trip-detail' && <TripDetail />}
-            {page === 'monitor' && <LiveMonitor />}
-            {page === 'recovery' && <RecoveryCenter />}
-            {page === 'risk' && <RiskIntelligence />}
-            {page === 'activity' && <ActivityPage />}
-            {page === 'settings' && <SettingsPage />}
-          </div>
+          {noTripFound ? (
+            <div className="flex h-full items-center justify-center p-8">
+              <div className="max-w-md text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-ink-700 bg-ink-900">
+                  <Briefcase className="h-7 w-7 text-ink-500" />
+                </div>
+                <h2 className="text-lg font-semibold text-ink-100">You don't have any trips yet</h2>
+                <p className="mt-2 text-sm text-ink-400">
+                  Trip creation isn't available yet. In the meantime, you can log out and explore
+                  the product with the seeded demo traveler from the login screen.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div key={page} className="animate-fade-in">
+              {page === 'overview' && <Overview onNavigate={handleNavigate} />}
+              {page === 'trips' && <Trips onNavigate={handleNavigate} />}
+              {page === 'trip-detail' && <TripDetail />}
+              {page === 'monitor' && <LiveMonitor />}
+              {page === 'recovery' && <RecoveryCenter />}
+              {page === 'risk' && <RiskIntelligence />}
+              {page === 'activity' && <ActivityPage />}
+              {page === 'settings' && <SettingsPage />}
+            </div>
+          )}
         </main>
       </div>
 

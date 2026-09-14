@@ -8,7 +8,7 @@ import type {
   TravelerPreferences,
   ActivityEvent,
 } from '@/types';
-import { initialTrip, defaultPreferences } from '@/data/mockData';
+import { defaultPreferences } from '@/data/mockData';
 import * as api from '@/services/api';
 import { ApiError } from '@/services/api';
 
@@ -17,9 +17,36 @@ export type AppPhase = 'idle' | 'disrupted' | 'analyzing' | 'recovering' | 'reco
 const DEFAULT_TRIP_ID = 'trip-ladakh-2025';
 const CASCADE_STEP_MS = 450;
 
+// A neutral, non-misleading placeholder - never real (or real-looking) trip
+// data. Used before the first load resolves and whenever the requested trip
+// turns out not to belong to the signed-in traveler, so there is never a
+// moment where fabricated/stale content could render as if it were real.
+const EMPTY_TRIP: Trip = {
+  id: '',
+  name: '',
+  travelerName: '',
+  route: '',
+  origin: '',
+  destination: '',
+  startDate: '',
+  endDate: '',
+  nodes: [],
+  edges: [],
+  tripValue: 0,
+  healthScore: 0,
+  status: 'operational',
+  days: [],
+};
+
 export interface AppState {
   tripId: string;
   trip: Trip;
+  /** True when the active trip request came back 404 - i.e. this trip
+   * doesn't belong to (or doesn't exist for) the signed-in traveler. Distinct
+   * from `error`, which covers transient/network failures on a trip that IS
+   * expected to exist; this is used to gate the whole app shell behind an
+   * honest "no trips yet" screen instead of rendering `trip` at all. */
+  noTripFound: boolean;
   /** Snapshot of the trip exactly as it was the moment the active disruption
    * started - real data for the "before" side of Before/After, not a
    * synthesized "everything healthy" guess. */
@@ -43,6 +70,7 @@ type Action =
   | { type: 'LOAD_START' }
   | { type: 'LOAD_SUCCESS'; trip: Trip; activityLog: ActivityEvent[]; notifications: Notification[]; preferences: TravelerPreferences }
   | { type: 'LOAD_ERROR'; message: string }
+  | { type: 'TRIP_NOT_FOUND' }
   | { type: 'SWITCH_TRIP'; tripId: string }
   | { type: 'SET_BUSY'; busy: boolean }
   | { type: 'DISRUPTION_STARTED'; disruption: Disruption }
@@ -79,12 +107,13 @@ function applyUpdates(
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'LOAD_START':
-      return { ...state, loading: true, error: null };
+      return { ...state, loading: true, error: null, noTripFound: false };
     case 'LOAD_SUCCESS':
       return {
         ...state,
         loading: false,
         error: null,
+        noTripFound: false,
         trip: action.trip,
         activityLog: action.activityLog,
         notifications: action.notifications,
@@ -94,12 +123,30 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'LOAD_ERROR':
       return { ...state, loading: false, error: action.message };
+    case 'TRIP_NOT_FOUND':
+      return {
+        ...state,
+        loading: false,
+        error: null,
+        noTripFound: true,
+        trip: EMPTY_TRIP,
+        phase: 'idle',
+        activeDisruption: null,
+        preDisruptionTrip: null,
+        recoveryOptions: [],
+        selectedRecovery: null,
+        appliedRecovery: null,
+        notifications: [],
+        activityLog: [],
+        unreadCount: 0,
+      };
     case 'SWITCH_TRIP':
       return {
         ...state,
         tripId: action.tripId,
         loading: true,
         error: null,
+        noTripFound: false,
         phase: 'idle',
         activeDisruption: null,
         preDisruptionTrip: null,
@@ -171,7 +218,8 @@ function reducer(state: AppState, action: Action): AppState {
 
 const initialState: AppState = {
   tripId: DEFAULT_TRIP_ID,
-  trip: structuredClone(initialTrip),
+  trip: EMPTY_TRIP,
+  noTripFound: false,
   preDisruptionTrip: null,
   phase: 'idle',
   activeDisruption: null,
@@ -248,6 +296,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ]);
       dispatch({ type: 'LOAD_SUCCESS', trip, activityLog, notifications, preferences });
     } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        dispatch({ type: 'TRIP_NOT_FOUND' });
+        return;
+      }
       const message = err instanceof ApiError ? err.message : 'Could not load your trip.';
       dispatch({ type: 'LOAD_ERROR', message });
     }
