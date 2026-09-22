@@ -17,9 +17,9 @@ class DependencyEdge(Base):
     __tablename__ = "dependency_edges"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: generate_id("edge"))
-    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False)
-    source_id: Mapped[str] = mapped_column(ForeignKey("itinerary_nodes.id"), nullable=False)
-    target_id: Mapped[str] = mapped_column(ForeignKey("itinerary_nodes.id"), nullable=False)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False, index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("itinerary_nodes.id"), nullable=False, index=True)
+    target_id: Mapped[str] = mapped_column(ForeignKey("itinerary_nodes.id"), nullable=False, index=True)
 
     dependency_type: Mapped[DependencyType] = mapped_column(Enum(DependencyType), default=DependencyType.SOFT)
     min_buffer_minutes: Mapped[int] = mapped_column(Integer, default=0)
