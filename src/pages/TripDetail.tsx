@@ -7,8 +7,9 @@ import { ScoreRing } from '@/components/ui/ScoreRing';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { BookingsPage } from '@/pages/BookingsPage';
 import { RiskIntelligence } from '@/pages/RiskIntelligence';
+import { AddFlightModal } from '@/components/trip/AddFlightModal';
 import { cn } from '@/lib/utils';
-import { Plane, Calendar, GitBranch, Map as MapIcon, ClipboardList, ShieldAlert, Clock } from 'lucide-react';
+import { Plane, Calendar, GitBranch, Map as MapIcon, ClipboardList, ShieldAlert, Clock, Plus } from 'lucide-react';
 
 type Tab = 'timeline' | 'graph' | 'map' | 'bookings' | 'risks';
 
@@ -23,6 +24,8 @@ const tabs: { id: Tab; label: string; icon: typeof Calendar }[] = [
 export function TripDetail() {
   const { trip, appliedRecovery } = useApp();
   const [tab, setTab] = useState<Tab>('timeline');
+  const [addFlightOpen, setAddFlightOpen] = useState(false);
+  const hasNodes = trip.nodes.length > 0;
 
   return (
     <div className="space-y-5">
@@ -43,89 +46,117 @@ export function TripDetail() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAddFlightOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Flight
+            </button>
             <ScoreRing score={trip.healthScore} size={70} strokeWidth={6} label="Health" />
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-ink-700">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                'flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-medium transition',
-                tab === t.id ? 'border-accent-500 text-accent-600' : 'border-transparent text-ink-400 hover:text-ink-100'
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <AddFlightModal open={addFlightOpen} onClose={() => setAddFlightOpen(false)} onAdded={() => setAddFlightOpen(false)} />
 
-      {tab === 'timeline' && (
-        <div className="space-y-4">
-          {appliedRecovery && <BeforeAfterView />}
-          <div className="glass rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-ink-100 mb-4">Day-by-day Timeline</h3>
+      {!hasNodes ? (
+        <div className="rounded-xl border border-dashed border-ink-600 bg-ink-900 p-12 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-ink-700 bg-white">
+            <Plane className="h-5 w-5 text-ink-500" />
+          </div>
+          <p className="text-sm text-ink-400">This trip has no itinerary yet.</p>
+          <p className="mt-1 text-xs text-ink-500">Add a flight to start building the dependency graph.</p>
+          <button
+            onClick={() => setAddFlightOpen(true)}
+            className="mt-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-500 to-electric-600 px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 mx-auto"
+          >
+            <Plus className="h-4 w-4" />
+            Add Flight
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-1 border-b border-ink-700">
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-medium transition',
+                    tab === t.id ? 'border-accent-500 text-accent-600' : 'border-transparent text-ink-400 hover:text-ink-100'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {tab === 'timeline' && (
             <div className="space-y-4">
-              {trip.days.map((day) => (
-                <div key={day.day} className="flex gap-4">
-                  <div className="flex flex-col items-center shrink-0">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent-500/30 bg-accent-500/10">
-                      <span className="text-sm font-bold text-accent-600">{day.day}</span>
-                    </div>
-                    {day.day < trip.days.length && <div className="h-full w-px bg-ink-700 mt-1" />}
-                  </div>
-                  <div className="flex-1 pb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-ink-500 font-mono">{day.date}</span>
-                      <span className="text-sm font-medium text-ink-100">{day.title}</span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-ink-400">{day.summary}</p>
-                    {day.nodeIds.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {day.nodeIds.map((nid) => {
-                          const node = trip.nodes.find((n) => n.id === nid);
-                          if (!node) return null;
-                          return (
-                            <div key={nid} className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-white/60 px-2 py-1">
-                              <Clock className="h-3 w-3 text-ink-500" />
-                              <span className="text-[10px] text-ink-200">{node.title}</span>
-                              <span className={cn(
-                                'h-1.5 w-1.5 rounded-full',
-                                node.status === 'healthy' ? 'bg-emerald-400' :
-                                node.status === 'at-risk' ? 'bg-amber-400' :
-                                node.status === 'broken' ? 'bg-red-400' : 'bg-accent-400'
-                              )} />
-                            </div>
-                          );
-                        })}
+              {appliedRecovery && <BeforeAfterView />}
+              <div className="glass rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-ink-100 mb-4">Day-by-day Timeline</h3>
+                <div className="space-y-4">
+                  {trip.days.map((day) => (
+                    <div key={day.day} className="flex gap-4">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent-500/30 bg-accent-500/10">
+                          <span className="text-sm font-bold text-accent-600">{day.day}</span>
+                        </div>
+                        {day.day < trip.days.length && <div className="h-full w-px bg-ink-700 mt-1" />}
                       </div>
-                    )}
-                  </div>
+                      <div className="flex-1 pb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-ink-500 font-mono">{day.date}</span>
+                          <span className="text-sm font-medium text-ink-100">{day.title}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-ink-400">{day.summary}</p>
+                        {day.nodeIds.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {day.nodeIds.map((nid) => {
+                              const node = trip.nodes.find((n) => n.id === nid);
+                              if (!node) return null;
+                              return (
+                                <div key={nid} className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-white/60 px-2 py-1">
+                                  <Clock className="h-3 w-3 text-ink-500" />
+                                  <span className="text-[10px] text-ink-200">{node.title}</span>
+                                  <span className={cn(
+                                    'h-1.5 w-1.5 rounded-full',
+                                    node.status === 'healthy' ? 'bg-emerald-400' :
+                                    node.status === 'at-risk' ? 'bg-amber-400' :
+                                    node.status === 'broken' ? 'bg-red-400' : 'bg-accent-400'
+                                  )} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {tab === 'graph' && (
-        <div className="glass rounded-xl p-4">
-          <div className="h-[550px]">
-            <ItineraryGraph nodes={trip.nodes} edges={trip.edges} />
-          </div>
-        </div>
-      )}
+          {tab === 'graph' && (
+            <div className="glass rounded-xl p-4">
+              <div className="h-[550px]">
+                <ItineraryGraph nodes={trip.nodes} edges={trip.edges} />
+              </div>
+            </div>
+          )}
 
-      {tab === 'map' && <MapView />}
-      {tab === 'bookings' && <BookingsPage />}
-      {tab === 'risks' && <RiskIntelligence />}
+          {tab === 'map' && <MapView />}
+          {tab === 'bookings' && <BookingsPage />}
+          {tab === 'risks' && <RiskIntelligence />}
+        </>
+      )}
     </div>
   );
 }
