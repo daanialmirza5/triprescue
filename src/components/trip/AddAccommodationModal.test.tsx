@@ -10,7 +10,7 @@ vi.mock('@/services/api', async () => {
   return {
     ...actual,
     getItinerary: vi.fn(),
-    getActivity: vi.fn(),
+    getActivityLog: vi.fn(),
     getNotifications: vi.fn(),
     getPreferences: vi.fn(),
     listTrips: vi.fn(),
@@ -45,7 +45,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.getItinerary).mockResolvedValue(baseTrip());
-  vi.mocked(api.getActivity).mockResolvedValue([]);
+  vi.mocked(api.getActivityLog).mockResolvedValue([]);
   vi.mocked(api.getNotifications).mockResolvedValue([]);
   vi.mocked(api.getPreferences).mockResolvedValue({
     costVsSpeed: 50,
