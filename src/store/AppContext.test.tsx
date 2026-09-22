@@ -21,6 +21,8 @@ vi.mock('@/services/api', async () => {
     createTrip: vi.fn(),
     listTrips: vi.fn(),
     addFlightNode: vi.fn(),
+    addNode: vi.fn(),
+    deleteNode: vi.fn(),
   };
 });
 
@@ -294,6 +296,33 @@ describe('AppContext', () => {
     expect(result.current.trip.nodes).toHaveLength(1);
     expect(result.current.trip.nodes[0].id).toBe('flight-1');
     expect(result.current.trip.edges).toEqual([]);
+  });
+
+  it('deletes a node via the API and replaces trip state wholesale from the backend response', async () => {
+    const initialTrip = baseTrip({
+      nodes: [
+        {
+          id: 'flight-1', category: 'flight', label: 'Flight', title: 'Delhi to Mumbai', subtitle: '',
+          location: 'DEL', scheduledTime: '', provider: 'IndiGo', cost: 5500, cancellationPolicy: '',
+          refundable: false, riskLevel: 0, dependencyCount: 0, status: 'healthy', day: 1, icon: 'plane',
+        },
+      ],
+      edges: [],
+    });
+    vi.mocked(api.getItinerary).mockResolvedValue(initialTrip);
+    const { result } = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.trip.nodes).toHaveLength(1);
+
+    const emptyTrip = baseTrip({ nodes: [], edges: [] });
+    vi.mocked(api.deleteNode).mockResolvedValue(emptyTrip);
+
+    await act(async () => {
+      await result.current.deleteNode('flight-1');
+    });
+
+    expect(api.deleteNode).toHaveBeenCalledWith('trip-ladakh-2025', 'flight-1');
+    expect(result.current.trip.nodes).toHaveLength(0);
   });
 
   it('resets disruption/recovery state and reloads when switching trips', async () => {

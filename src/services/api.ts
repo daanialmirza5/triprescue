@@ -100,6 +100,10 @@ function post<T>(path: string, body?: unknown): Promise<T> {
   return request<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined });
 }
 
+function del<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'DELETE' });
+}
+
 export interface TripSummary {
   id: string;
   name: string;
@@ -188,8 +192,57 @@ export interface FlightCreateRequest {
   cost: number;
 }
 
+export interface HotelCreateRequest {
+  category: 'hotel';
+  title: string;
+  provider: string;
+  confirmation: string;
+  location: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  cost: number;
+}
+
+export interface ActivityCreateRequest {
+  category: 'activity';
+  title: string;
+  provider: string;
+  confirmation: string;
+  location: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  cost: number;
+}
+
+export interface TransferCreateRequest {
+  category: 'transfer';
+  title: string;
+  provider: string;
+  confirmation: string;
+  originCode?: string;
+  destinationCode?: string;
+  location?: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  cost: number;
+}
+
+export type NodeCreateRequest =
+  | FlightCreateRequest
+  | HotelCreateRequest
+  | ActivityCreateRequest
+  | TransferCreateRequest;
+
 export async function addFlightNode(tripId: string, req: FlightCreateRequest): Promise<Trip> {
   return post<Trip>(`/api/trips/${tripId}/nodes`, req);
+}
+
+export async function addNode(tripId: string, req: NodeCreateRequest): Promise<Trip> {
+  return post<Trip>(`/api/trips/${tripId}/nodes`, req);
+}
+
+export async function deleteNode(tripId: string, nodeId: string): Promise<Trip> {
+  return del<Trip>(`/api/trips/${tripId}/nodes/${nodeId}`);
 }
 
 export async function getItinerary(tripId: string): Promise<Trip> {
