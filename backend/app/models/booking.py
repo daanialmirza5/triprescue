@@ -12,8 +12,8 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: generate_id("bk"))
-    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False)
-    node_id: Mapped[str] = mapped_column(ForeignKey("itinerary_nodes.id"), unique=True, nullable=False)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False, index=True)
+    node_id: Mapped[str] = mapped_column(ForeignKey("itinerary_nodes.id"), unique=True, nullable=False, index=True)
 
     category: Mapped[NodeCategory] = mapped_column(Enum(NodeCategory), nullable=False)
     provider: Mapped[str] = mapped_column(String, default="")

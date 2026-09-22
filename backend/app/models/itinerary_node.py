@@ -14,7 +14,7 @@ class ItineraryNode(Base):
     __tablename__ = "itinerary_nodes"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: generate_id("node"))
-    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False, index=True)
 
     category: Mapped[NodeCategory] = mapped_column(Enum(NodeCategory), nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=False)
@@ -22,7 +22,7 @@ class ItineraryNode(Base):
     subtitle: Mapped[str] = mapped_column(String, default="")
     location: Mapped[str] = mapped_column(String, default="")
 
-    scheduled_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    scheduled_start: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     scheduled_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     actual_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     actual_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

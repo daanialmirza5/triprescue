@@ -10,7 +10,7 @@ class Trip(Base):
     __tablename__ = "trips"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: generate_id("trip"))
-    traveler_id: Mapped[str] = mapped_column(ForeignKey("travelers.id"), nullable=False)
+    traveler_id: Mapped[str] = mapped_column(ForeignKey("travelers.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     route: Mapped[str] = mapped_column(String, nullable=False)
     origin: Mapped[str] = mapped_column(String, nullable=False)

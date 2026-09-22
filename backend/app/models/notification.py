@@ -12,7 +12,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: generate_id("notif"))
-    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False)
+    trip_id: Mapped[str] = mapped_column(ForeignKey("trips.id"), nullable=False, index=True)
 
     severity: Mapped[NotificationSeverity] = mapped_column(Enum(NotificationSeverity), nullable=False)
     category: Mapped[NotificationCategory] = mapped_column(Enum(NotificationCategory), nullable=False)
