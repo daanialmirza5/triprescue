@@ -259,9 +259,81 @@ def test_invalid_category_is_rejected(client):
     trip = _create_owned_trip(client, user["token"])
 
     resp = client.post(
-        f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(category="hotel"), headers=headers
+        f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(category="submarine"), headers=headers
     )
     assert resp.status_code == 422
+
+
+def test_authenticated_owner_can_add_a_hotel_node(client):
+    user = _register(client, name="Hotel Adder", email="hotel.adder@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    hotel_payload = {
+        "category": "hotel",
+        "title": "Grand Hyatt Tokyo",
+        "provider": "Hyatt",
+        "confirmation": "HYATT-8899",
+        "location": "Roppongi, Tokyo",
+        "scheduledStart": "2026-04-10T14:00:00",
+        "scheduledEnd": "2026-04-14T11:00:00",
+        "cost": 85000,
+    }
+    resp = client.post(f"/api/trips/{trip['id']}/nodes", json=hotel_payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert len(body["nodes"]) == 1
+    node = body["nodes"][0]
+    assert node["category"] == "hotel"
+    assert node["title"] == "Grand Hyatt Tokyo"
+    assert node["cost"] == 85000
+    assert node["icon"] == "hotel"
+
+
+def test_authenticated_owner_can_add_an_activity_node(client):
+    user = _register(client, name="Activity Adder", email="activity.adder@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    activity_payload = {
+        "category": "activity",
+        "title": "Mount Fuji Guided Trek",
+        "provider": "Fuji Eco Tours",
+        "confirmation": "FUJI-4421",
+        "location": "Mount Fuji 5th Station",
+        "scheduledStart": "2026-04-11T07:00:00",
+        "scheduledEnd": "2026-04-11T16:00:00",
+        "cost": 12000,
+    }
+    resp = client.post(f"/api/trips/{trip['id']}/nodes", json=activity_payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert len(body["nodes"]) == 1
+    assert body["nodes"][0]["category"] == "activity"
+    assert body["nodes"][0]["title"] == "Mount Fuji Guided Trek"
+
+
+def test_authenticated_owner_can_add_a_transfer_node(client):
+    user = _register(client, name="Transfer Adder", email="transfer.adder@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    transfer_payload = {
+        "category": "transfer",
+        "title": "Shinkansen Bullet Train",
+        "provider": "JR East",
+        "confirmation": "JR-7712",
+        "originCode": "TYO",
+        "destinationCode": "KYO",
+        "scheduledStart": "2026-04-12T10:00:00",
+        "scheduledEnd": "2026-04-12T12:15:00",
+        "cost": 14000,
+    }
+    resp = client.post(f"/api/trips/{trip['id']}/nodes", json=transfer_payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert len(body["nodes"]) == 1
+    assert body["nodes"][0]["category"] == "transfer"
 
 
 def test_invalid_airport_code_is_rejected(client):

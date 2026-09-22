@@ -193,27 +193,38 @@ def create_trip(
     return get_trip_out(db, trip.id, traveler_id)
 
 
-def add_flight_node(db: Session, trip_id: str, traveler_id: str, request: NodeCreateRequest) -> TripOut:
-    """Creates the flight's itinerary node and its matching Booking record
-    (required for the existing Bookings page, which queries the Booking
-    table directly rather than deriving from nodes - see get_bookings_out)
-    atomically: both are added to the same session and persisted by one
-    db.commit() at the end, so a failure anywhere in between leaves neither
-    behind (get_db's rollback-on-exception in app/database/session.py is
-    what actually guarantees that, the same mechanism apply_recovery
-    already relies on)."""
+def add_node(db: Session, trip_id: str, traveler_id: str, request: NodeCreateRequest) -> TripOut:
+    """Creates an itinerary node and its matching Booking record atomically:
+    both are added to the same session and persisted by one db.commit() at the
+    end, so a failure anywhere in between leaves neither behind."""
     trip = get_trip(db, trip_id, traveler_id)  # ownership check before mutating
 
     existing_nodes = NodeRepository(db).list_for_trip(trip_id)
     day = max((n.day for n in existing_nodes), default=0) + 1
 
+    category_map = {
+        "flight": (NodeCategory.FLIGHT, "plane"),
+        "hotel": (NodeCategory.HOTEL, "hotel"),
+        "activity": (NodeCategory.ACTIVITY, "compass"),
+        "transfer": (NodeCategory.TRANSFER, "car"),
+    }
+    cat_enum, icon = category_map.get(request.category, (NodeCategory.ACTIVITY, "map-pin"))
+
+    location = request.location or request.origin_code or ""
+    if request.category == "flight" and request.origin_code:
+        route = f"{request.origin_code} → {request.destination_code}"
+    elif request.category == "transfer" and request.origin_code and request.destination_code:
+        route = f"{request.origin_code} → {request.destination_code}"
+    else:
+        route = request.location or request.title
+
     node = ItineraryNode(
         trip_id=trip_id,
-        category=NodeCategory.FLIGHT,
+        category=cat_enum,
         label=request.title,
         title=request.title,
         subtitle=f"{request.provider} · {request.confirmation}",
-        location=request.origin_code,
+        location=location,
         scheduled_start=request.scheduled_start,
         scheduled_end=request.scheduled_end,
         provider=request.provider,
@@ -222,7 +233,7 @@ def add_flight_node(db: Session, trip_id: str, traveler_id: str, request: NodeCr
         cancellation_policy="",
         refundable=False,
         day=day,
-        icon="plane",
+        icon=icon,
         origin_code=request.origin_code,
         destination_code=request.destination_code,
     )
@@ -231,19 +242,23 @@ def add_flight_node(db: Session, trip_id: str, traveler_id: str, request: NodeCr
     booking = Booking(
         trip_id=trip_id,
         node_id=node.id,
-        category=NodeCategory.FLIGHT,
+        category=cat_enum,
         provider=request.provider,
         confirmation=request.confirmation,
         cost=request.cost,
         refundable=False,
         cancellation_policy="",
-        route=f"{request.origin_code} → {request.destination_code}",
+        route=route,
     )
     db.add(booking)
 
     trip.trip_value = trip.trip_value + request.cost
     db.commit()
     return get_trip_out(db, trip_id, traveler_id)
+
+
+# Backwards compatibility alias for add_flight_node
+add_flight_node = add_node
 
 
 def list_trip_summaries(db: Session, traveler_id: str | None = None) -> list[TripSummaryOut]:
