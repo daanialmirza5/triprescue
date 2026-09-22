@@ -46,9 +46,24 @@ def add_node(
     traveler_id: str = Depends(get_current_traveler_id),
 ):
     try:
-        return trip_service.add_flight_node(db, trip_id, traveler_id, request)
+        return trip_service.add_node(db, trip_id, traveler_id, request)
     except trip_service.TripNotFoundError:
         raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+
+
+@router.delete("/{trip_id}/nodes/{node_id}", response_model=TripOut)
+def delete_node(
+    trip_id: str,
+    node_id: str,
+    db: Session = Depends(get_db),
+    traveler_id: str = Depends(get_current_traveler_id),
+):
+    try:
+        return trip_service.delete_node(db, trip_id, node_id, traveler_id)
+    except trip_service.TripNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+    except trip_service.NodeNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Node '{node_id}' not found in trip '{trip_id}'")
 
 
 @router.get("/{trip_id}", response_model=TripOut)
