@@ -15,6 +15,7 @@ import { ActivityPage } from '@/pages/ActivityPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TripDetail } from '@/pages/TripDetail';
 import { AIAssistant } from '@/components/ai/AIAssistant';
+import { NetworkStatusBanner } from '@/components/ui/NetworkStatusBanner';
 import { LifeBuoy, WifiOff, Briefcase } from 'lucide-react';
 
 type ExtendedPage = PageId | 'trip-detail';
@@ -179,6 +180,7 @@ function AppContent() {
       </div>
 
       <AIAssistant open={aiOpen} onClose={() => setAiOpen(false)} />
+      <NetworkStatusBanner />
     </div>
   );
 }
