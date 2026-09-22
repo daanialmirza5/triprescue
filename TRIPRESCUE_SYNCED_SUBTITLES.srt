@@ -1,0 +1,183 @@
+1
+00:00:00,000 --> 00:00:08,936
+Hi, this is TripRescue, a travel platform that treats your whole trip as one connected system, not five disconnected bookings.
+
+2
+00:00:08,936 --> 00:00:19,213
+When a flight, hotel, or activity breaks, TripRescue knows exactly what else is affected downstream, and generates real, ranked ways to fix it.
+
+3
+00:00:19,213 --> 00:00:21,000
+Let me show you.
+
+4
+00:00:21,000 --> 00:00:26,216
+First, a real account. I'll register with a name, email, and password.
+
+5
+00:00:26,216 --> 00:00:35,780
+That goes to our FastAPI backend, which checks the email isn't taken, hashes the password with salted PBKDF2, and creates the account.
+
+6
+00:00:35,780 --> 00:00:42,735
+Now I'm on a genuinely empty dashboard, no seeded data, because I haven't earned any yet.
+
+7
+00:00:42,735 --> 00:00:47,082
+I'll create a trip: Rajasthan Winter Escape, Delhi to Udaipur.
+
+8
+00:00:47,082 --> 00:00:53,167
+The only fields this form asks for are the name, origin, destination, and dates.
+
+9
+00:00:53,167 --> 00:01:03,600
+When I save, the backend attaches this trip to my account using the identity from my session token, not anything the browser could fake.
+
+10
+00:01:03,000 --> 00:01:07,312
+Now let's add the first real itinerary item, a flight.
+
+11
+00:01:07,312 --> 00:01:12,055
+I'll fill in the airline, confirmation number, airport codes, and schedule.
+
+12
+00:01:12,055 --> 00:01:18,523
+To be honest with you, this is manual entry today, not a live flight search.
+
+13
+00:01:18,523 --> 00:01:24,128
+That's the clear next step, not something I'm going to pretend already exists.
+
+14
+00:01:24,128 --> 00:01:37,063
+What is real: when I save, the backend validates everything, confirms I actually own this trip, and creates the flight and its matching booking record in a single atomic transaction.
+
+15
+00:01:37,063 --> 00:01:43,100
+And there it is, appearing immediately in the timeline, pulled straight from the database.
+
+16
+00:01:46,000 --> 00:01:55,174
+To show you a fully built-out itinerary, I'm switching to TripRescue's example account, Aisha's Ladakh Expedition.
+
+17
+00:01:55,174 --> 00:02:09,510
+Same login, same real backend - this is just a richer, pre-loaded dataset: eight days, flights, a hotel, and activities across Mumbai, Delhi, and Leh.
+
+18
+00:02:09,510 --> 00:02:12,950
+Here's the Timeline, day by day.
+
+19
+00:02:12,950 --> 00:02:19,831
+Here's the Graph, the actual dependency structure the recovery engine reasons over.
+
+20
+00:02:19,831 --> 00:02:29,005
+The Map plots every located stop geographically. And Bookings lists every confirmation number in one place.
+
+21
+00:02:29,005 --> 00:02:39,900
+All four views are reading the exact same trip record from the backend - there's no separate copy anywhere.
+
+22
+00:03:21,000 --> 00:03:29,307
+Now let's break something on purpose. I'll simulate a three-hour delay on the Mumbai to Delhi flight.
+
+23
+00:03:29,307 --> 00:03:41,033
+To be clear, this disruption and the recovery response are simulated, so you can see exactly how the product behaves during a real interruption.
+
+24
+00:03:41,033 --> 00:03:47,874
+Watch the cascade: the connection in Delhi is now broken, five bookings are downstream-impacted.
+
+25
+00:03:47,874 --> 00:03:58,135
+Financial exposure jumps to about forty-two thousand eight hundred rupees at risk, all computed live from the actual itinerary, not hardcoded.
+
+26
+00:03:58,135 --> 00:04:09,862
+TripRescue found three ranked recovery strategies: a premium rebooking scoring 96, a balanced option at 88, and a cheap but 20-hour-late option at 58.
+
+27
+00:04:09,862 --> 00:04:15,237
+I'll apply the top-ranked one, rebooking onto Air India flight AI-445.
+
+28
+00:04:15,237 --> 00:04:21,100
+And the itinerary updates immediately: new times, new risk levels, propagated everywhere.
+
+29
+00:04:44,000 --> 00:04:53,269
+A different kind of disruption this time: the Pangong Lake Tour activity gets cancelled.
+
+30
+00:04:53,269 --> 00:04:58,566
+Again, simulated - but the response is real.
+
+31
+00:04:58,566 --> 00:05:11,145
+TripRescue found one feasible alternative: rebooking with Ladakh Adventures, scoring 82 out of 100, preserving 6 of 7 commitments.
+
+32
+00:05:11,145 --> 00:05:22,400
+Worth being honest here too: not every disruption type has a feasible alternative in this demo's dataset.
+
+33
+00:05:51,000 --> 00:06:01,052
+From here on, nothing is simulated. This is just the real app under normal conditions. I'll refresh the browser.
+
+34
+00:06:01,052 --> 00:06:12,161
+Both recoveries are still exactly as applied - that's coming fresh from the database on every load, not a client-side cache.
+
+35
+00:06:12,161 --> 00:06:18,510
+I'll log out and log back in as Aisha - still there.
+
+36
+00:06:18,510 --> 00:06:25,387
+Now the important part: I'll switch to a second, completely separate account, Rohan.
+
+37
+00:06:25,387 --> 00:06:31,735
+His My Trips page says plainly: you don't have any trips yet.
+
+38
+00:06:31,735 --> 00:06:40,200
+The backend enforces that by filtering every query against the identity in his own session token.
+
+39
+00:07:22,000 --> 00:07:32,910
+So what's actually running underneath this? React and Vite on the frontend, talking to a FastAPI backend.
+
+40
+00:07:32,910 --> 00:07:44,462
+Every request passes through authentication, an ownership check, and real business logic before touching the database through SQLAlchemy.
+
+41
+00:07:44,462 --> 00:07:57,297
+Locally, I've verified this entire flow against a real PostgreSQL instance running in Docker, with Alembic managing every schema change.
+
+42
+00:07:57,297 --> 00:08:08,207
+In production, the backend runs on Render, built to connect to Supabase's managed Postgres the same way.
+
+43
+00:08:08,207 --> 00:08:20,400
+Every action you've seen follows the same chain: click, API request, authentication, business logic, database transaction, response, UI update.
+
+44
+00:08:22,000 --> 00:08:30,765
+That's TripRescue: real authentication, a real database, a real disruption-and-recovery engine.
+
+45
+00:08:30,765 --> 00:08:44,310
+Today it fully supports flights end-to-end. Hotels, activities, and live provider search are the clear next step.
+
+46
+00:08:44,310 --> 00:08:46,700
+Thanks for watching.

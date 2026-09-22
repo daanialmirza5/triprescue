@@ -1,0 +1,297 @@
+TripRescue — Presentation Script (for you to speak live over the video)
+
+How to use this: Play `TripRescue_Final_Demo.mp4`. The short white caption at the bottom of the screen at each moment is your key point / anchor — it's already burned into the video. What you actually say out loud is the longer explanation below it. You don't have to match these word-for-word to the caption's exact on-screen duration — talk naturally; pause the video if you need more time on a point, that's completely fine for a live presentation.
+
+Each section below is labeled with the video timestamp it lines up with, the caption that's already showing on screen at that point, and then your full spoken explanation.
+
+OPENING (say this before/as the video starts, over the landing page)
+
+SAY:
+
+"Hello everyone, good [morning/afternoon]. Thank you for the opportunity to present our project — TripRescue.
+
+Before I show you anything, let me start with the problem, because that's really the whole reason this project exists.
+
+Imagine you're a traveler on a multi-leg trip. You fly Mumbai to Delhi, connect to a flight to Leh, take a ground transfer to your hotel, and then you have a couple of days of activities booked — say, a Pangong Lake tour and a Nubra Valley excursion — before flying back. That's eight separate bookings that all depend on each other happening roughly on time and in order.
+
+Now, your very first flight — Mumbai to Delhi — gets delayed by three hours. What happens? In most travel apps, absolutely nothing happens on the app's side. The app just shows you 'your flight is delayed.' It doesn't tell you that this delay might cause you to miss your connecting flight to Leh. It doesn't tell you that if you miss that connection, your prebooked transfer to the hotel is now booked for a time you'll never arrive at. It doesn't tell you your hotel check-in is now at risk, or that the activities you booked assumed you'd already be in Leh by a certain time.
+
+That is the real problem: disruptions in travel are never isolated. They cascade. And almost no existing tool actually reasons about that cascade — they track individual bookings, not the relationships between them.
+
+So, what is TripRescue? TripRescue is an explainable travel disruption recovery engine for multi-leg itineraries. And I want to stress the word 'explainable,' because that's the core design philosophy here. It doesn't just tell you something is broken — it tells you exactly why it's broken, in terms of real numbers. It then generates multiple feasible ways to recover, ranks those ways according to what YOU actually care about — cost, speed, comfort — lets you apply one, and then re-checks the entire trip again to make sure that fix didn't quietly create a new problem somewhere else.
+
+Let me show you exactly how that works, live."
+
+0:08 — Landing page hero
+
+ON SCREEN CAPTION: "TripRescue — an explainable travel disruption recovery engine for multi-leg itineraries."
+
+SAY:
+
+"This is our landing page. As you can see, the messaging up front is exactly what I just told you — this is not a generic AI travel chatbot, it's a recovery engine built specifically around one idea: an itinerary is not a list of bookings, it's a network of dependent bookings."
+
+0:24 — Landing page, problem section
+
+ON SCREEN CAPTION: "A delayed flight rarely stays isolated: missed transfer, hotel conflict, disrupted activities. Most tools track one booking at a time."
+
+SAY:
+
+"Here on the landing page we've laid out that exact cascade visually — delayed flight, missed transfer, hotel conflict, disrupted activity. This is the chain reaction I described a moment ago, and it's the thing that traditional travel tools simply don't model."
+
+0:40 — Landing page, 6-step flow
+
+ON SCREEN CAPTION: "The pipeline: Trigger → Dependency Graph → Impact Propagation → Recovery Generation → Preference Ranking → Apply & Re-validate."
+
+SAY:
+
+"And this is the actual product pipeline, in six steps. A disruption is triggered. It's evaluated against a dependency graph. The impact propagates through that graph. The system generates recovery options. Those options are ranked according to the traveler's preferences. And finally, the chosen recovery is applied and the whole trip is re-validated. I'm going to walk you through every single one of these six steps live, using the real running application — not slides, not mockups."
+
+0:55 — Login screen
+
+ON SCREEN CAPTION: "A real login screen. Using the Demo Traveler account for this walkthrough."
+
+SAY:
+
+"So let's enter the app. This is a real authentication screen — you can register a new account with an email and password, or, for today's demo, I'll log in as our seeded demo traveler, Aisha Khan, so you can see a fully populated trip immediately."
+
+1:06 — Command Center (Overview)
+
+ON SCREEN CAPTION: "Command Center: trip status, itinerary commitments, live dependency graph, and key metrics at a glance."
+
+SAY:
+
+"This is the Command Center — the first screen a traveler sees. At the top, the current trip status: right now it says 'Monitoring normally,' meaning everything is healthy. Below that, the route and dates. Then a strip called Trip Commitments, which lists every single booking in this itinerary with its scheduled time. Below that, four key numbers: total itinerary nodes, how many connections are currently at risk, how many bookings are broken, and the total trip value that's currently protected. And finally, the live dependency graph itself, which I'll zoom into next. The whole idea of this screen is that a traveler should be able to glance at it for five seconds and immediately know whether their trip is fine or not."
+
+1:26 — Live Monitor, full dependency graph
+
+ON SCREEN CAPTION: "Eight nodes, seven edges: Mumbai to Delhi, into a Delhi connection, into Delhi to Leh, a transfer, the hotel, then two activities and the return flight. This graph is what the backend reasons over."
+
+SAY:
+
+"This is the full dependency graph, on our Live Monitor page. Every box here is a real booking — a node. Every arrow is a real dependency — an edge. You can see the chain: the Mumbai to Delhi flight, into a connection buffer, into the Delhi to Leh flight, into an airport transfer, into the hotel, and then the hotel branches into two activities and the return journey.
+
+I want to be very clear about something important: this graph is not just a nice picture for the demo. This is literally the data structure the backend uses to compute everything. When I trigger a disruption in a moment, the server doesn't guess what's affected — it walks this exact graph, node by node, in dependency order, and does real math at every single edge."
+
+1:49 — Simulate Disruption modal opens
+
+ON SCREEN CAPTION: "Disruptions today are manually reported or simulated — deterministic input, not a live airline feed."
+
+SAY:
+
+"Now let's actually break something. I'm opening the Simulate Disruption panel. And I want to be completely transparent here, because this matters for judging the project honestly: in the current version, a disruption is manually triggered — either by me clicking here, or through an automated Demo Mode I'll show later. There is no live airline API feeding real delays into this system today. That's a deliberate, honest scope decision for this build. What IS real is everything that happens after the disruption is reported — that part is entirely computed, not scripted."
+
+1:59 — Flight Delay selected, 3-hour slider
+
+ON SCREEN CAPTION: "Delaying Mumbai to Delhi by 3 hours. The preview already computes real impact before I confirm."
+
+SAY:
+
+"I'm selecting Flight Delay as the disruption type, on the Mumbai to Delhi flight, and setting it to a three-hour delay. Notice this preview panel below — before I've even confirmed the disruption, the system has already computed a live preview of the impact. That preview call is hitting the real backend right now, in real time, as I move this slider."
+
+2:13 — Live Monitor, cascade animating
+
+ON SCREEN CAPTION: "Watch the cascade. The propagation engine walks the graph in dependency order — it does not mark everything red at once."
+
+SAY:
+
+"I've triggered the disruption. Watch the graph now. The delayed flight turns orange first. Then, moving downstream, you can see the next nodes changing status one after another. This is our Propagation Engine actually executing — it evaluates the graph in topological order, meaning it never looks at a downstream node before it's finished resolving everything upstream of it."
+
+2:27 — Disruption Analysis panel, buffer math (MOST IMPORTANT MOMENT — slow down here)
+
+ON SCREEN CAPTION: "Required buffer is 60 minutes; only 0 minutes remain after the 3-hour delay. Zero is less than sixty — BROKEN. This is computed, not hardcoded."
+
+SAY:
+
+"This right here is the single most important thing I want you to take away from this whole demo. Look at this exact sentence in the Disruption Analysis panel: 'Required buffer is 60 minutes but only 0 minutes remain.' That is not a canned message. That is the literal output of a real calculation. The connection between the Delhi flight and the Leh flight requires a minimum of sixty minutes of buffer time to be considered safe. After a three-hour delay, the actual remaining time between those two flights is zero minutes. Zero is less than sixty, so the engine marks this connection as BROKEN.
+
+And here's the proof that this is real math and not a hardcoded rule: if I had delayed this same flight by only twenty minutes instead of three hours, the available buffer would have been seventy minutes — which is MORE than the sixty required — and this exact same connection would have stayed perfectly healthy. Same rule, same edge, different input, different, correctly computed outcome. That's constraint-based reasoning."
+
+2:50 — Status legend on graph
+
+ON SCREEN CAPTION: "Healthy, At Risk, Broken, Recovered. At Risk means exposed but not yet proven infeasible. Broken means the constraint already failed."
+
+SAY:
+
+"You'll notice the graph uses a few distinct status colors. Green is Healthy. Amber is At Risk. Red is Broken. And later you'll see cyan for Recovered. The distinction I really want to highlight is between At Risk and Broken, because it's easy to confuse the two. At Risk means a booking is exposed to uncertainty — we genuinely don't yet know if it will be affected, because it depends on something further upstream that hasn't resolved yet. Broken means we've already run the actual math and the constraint has definitively failed. One is uncertainty; the other is a proven failure."
+
+3:06 — Disruption Analysis panel, full view
+
+ON SCREEN CAPTION: "Primary disruption, impact and exposure — financial exposure and refund exposure — and a step-by-step failure cascade, each with its own reason."
+
+SAY:
+
+"Scrolling through the full Disruption Analysis panel: at the top, the Primary Disruption — the original delay. Below that, Impact and Exposure — one direct booking affected, five bookings affected downstream, and two numbers that matter a lot to a real traveler: financial exposure of about thirty-six thousand rupees, and refund exposure of about seventy-four hundred rupees if things go the worst possible way. And then, the Failure Cascade — a numbered, step-by-step trace, where every single step has its own independent explanation, not a generic summary."
+
+3:24 — Recovery Center, 3 options
+
+ON SCREEN CAPTION: "Three feasible recovery plans — each validated by re-running propagation before it is ever offered."
+
+SAY:
+
+"Now we move from diagnosis to recovery. This is the Recovery Center, and the engine has generated three candidate recovery plans. What's important here is the word 'feasible' — a candidate is only shown to the traveler if the system re-ran the entire propagation check on the simulated result of that candidate and confirmed it leaves zero broken nodes. So these aren't just suggestions — they're pre-validated."
+
+3:38 — Recovery Center, scores
+
+ON SCREEN CAPTION: "Ranked by cost, speed, preservation, comfort, and risk — normalized against each other, weighted by traveler preference."
+
+SAY:
+
+"Each option has a score out of 100, and that score comes from five factors: cost, speed, how many original bookings are preserved, comfort, and residual risk. Each factor is normalized relative to the other candidates in this specific set, and then combined using weights that come directly from the traveler's own preference sliders — nothing about this ranking is decided in the frontend, it's all computed on the backend."
+
+3:53 — Compare All modal, slider
+
+ON SCREEN CAPTION: "Watch the ranking reorder live as I push the slider from cost toward speed."
+
+SAY:
+
+"Let me prove that personalization is real. I'm opening the comparison view, and I'm going to drag this Cost-versus-Speed slider all the way toward Speed."
+
+4:03 — Comparison table reordering
+
+ON SCREEN CAPTION: "The recovery engine is not a fixed list — it responds to what the traveler actually values."
+
+SAY:
+
+"Watch the table. The ranking is visibly reordering in real time as I move the slider — the faster, more expensive option is now jumping to the top. This is not a static list with a highlighted 'recommended' badge — the whole ranking recomputes based on what this specific traveler says they care about."
+
+4:12 — Recovery Center, about to apply
+
+ON SCREEN CAPTION: "Applying the top-ranked plan now."
+
+SAY:
+
+"I'm going to apply this top-ranked recovery option now. And I want to be clear about what 'apply' actually means here — this is not a recommendation that ends in advice. Clicking this button actually mutates the itinerary state on the backend."
+
+4:21 — Post-apply state
+
+ON SCREEN CAPTION: "Applied. Status changes to Recovery Applied — bookings preserved, additional cost and time shown."
+
+SAY:
+
+"And there it is — the trip status at the top has changed to 'Recovery Applied.' We can see exactly how many bookings were preserved out of the total, the additional cost this recovery introduced, and the additional time impact. Nothing here is vague — it's all concrete numbers tied to the actual plan we just applied."
+
+4:39 — Before/After view
+
+ON SCREEN CAPTION: "Before, on the left; after, on the right — every node tagged Rebooked, Rescheduled, or Preserved. The itinerary was re-validated, not just labeled fixed."
+
+SAY:
+
+"This is the Before and After view, and this is where I want to make another important point: TripRescue does not just assume that applying a fix makes everything safe. After applying the recovery, the system re-runs the entire propagation engine again on the new state, to make sure the fix itself didn't quietly create a brand-new conflict somewhere else in the itinerary. What you're looking at here is the actual result of that re-validation — on the left, the original itinerary; on the right, exactly what changed, with each node explicitly tagged as Rebooked, Rescheduled, or Preserved."
+
+5:03 — Risk Intelligence page
+
+ON SCREEN CAPTION: "Risk Intelligence: a resilience score, risk breakdown, and proactive alerts — even without an active disruption."
+
+SAY:
+
+"This is our Risk Intelligence page, and it works proactively — even when nothing is currently disrupted. It gives the traveler an overall trip resilience score, and breaks that down into connection risk, schedule risk, vendor risk, and weather risk, plus specific alerts — for example, flagging a non-refundable booking that carries full cost exposure if something goes wrong. This lets a traveler understand not just 'is my current trip broken,' but 'how fragile is my trip in general.'"
+
+5:21 — Bookings tab
+
+ON SCREEN CAPTION: "Every node as a real booking — provider, confirmation number, refund policy, cost."
+
+SAY:
+
+"Quickly, the Bookings view — this shows the exact same itinerary nodes, but from a booking-management perspective: provider name, confirmation number, refund policy, and cost for each one. It's the same underlying trip state, just a different lens on it."
+
+5:33 — Map tab
+
+ON SCREEN CAPTION: "The same itinerary, viewed geographically."
+
+SAY:
+
+"And the Map view gives that same itinerary a geographic layout, so a traveler can see their trip in space, not just as a list or a graph."
+
+5:42 — Activity page
+
+ON SCREEN CAPTION: "Activity Log: a full audit trail of everything that just happened, in order."
+
+SAY:
+
+"This is the Activity Log — a complete, ordered audit trail of every meaningful action taken in this session: the disruption, the analysis, recovery generation, the preference change, and the apply. Nothing here is invented after the fact — it's a real log of real events."
+
+5:55 — Notification bell dropdown
+
+ON SCREEN CAPTION: "Notifications surface the same events as alerts, so nothing gets lost."
+
+SAY:
+
+"And the same events also surface here, as notifications, so a traveler who wasn't watching the screen the whole time still sees exactly what happened and when."
+
+6:06 — AI Assistant opening
+
+ON SCREEN CAPTION: "AI is the explanation layer, not the decision engine. Propagation, recovery, and ranking are deterministic backend logic."
+
+SAY:
+
+"Now let's talk about the AI Assistant, because I want to be very precise about its role. AI is NOT what decided anything you've seen so far. The propagation, the feasibility checks, the recovery generation, and the ranking are all deterministic backend logic — the same calculation every time, given the same input. What the AI assistant does is explain that logic in plain language. Let me ask it a real question: why did my Delhi to Leh connection break?"
+
+6:23 — AI answer displayed
+
+ON SCREEN CAPTION: "The answer is grounded in this session's real state — the actual buffer numbers, not a generic response."
+
+SAY:
+
+"And here's its answer. Notice it's citing the actual numbers from this exact session — not a generic templated response. That's because the assistant is grounded in the live trip state. And to be fully transparent: if no external AI API key is configured, the assistant automatically falls back to a deterministic, rule-based responder that still answers using the same real data, with no visible difference to the user."
+
+6:36 — Overview, second disruption starting
+
+ON SCREEN CAPTION: "I am NOT resetting. Triggering a second, different disruption on the already-recovered trip."
+
+SAY:
+
+"This next part is something I specifically want to highlight, because it's an important proof point. I am NOT resetting the trip. I'm now going to trigger a second, completely different disruption — this time an activity cancellation — directly on top of the itinerary I just recovered a minute ago."
+
+6:51 — Post-second-disruption cascade
+
+ON SCREEN CAPTION: "The engine reasons again from the recovered state — proving this is a live, evolving itinerary, not a one-shot script."
+
+SAY:
+
+"And it works exactly the same way — the engine re-propagates from the current, already-recovered state. This proves that TripRescue isn't a one-shot scripted demo that only works once. It's a live, evolving itinerary that can be disrupted, recovered, and disrupted again, indefinitely."
+
+7:08 — After Reset click
+
+ON SCREEN CAPTION: "Reset restores the original, deterministic seed state."
+
+SAY:
+
+"For demo purposes, we also have a Reset button, which restores the trip to its original, deterministic, healthy seed state — useful for running this demonstration repeatedly."
+
+7:17 — Demo Mode running
+
+ON SCREEN CAPTION: "Demo Mode runs the identical sequence through the same production API — reset, disrupt, generate, apply."
+
+SAY:
+
+"And this is Demo Mode — a single button that automatically runs the exact same sequence I just did manually: reset, trigger a disruption, generate recovery options, and apply the top-ranked one. I want to stress that this goes through the exact same production API calls as the manual flow — it is not a separate, faked backend path."
+
+7:35 — Demo Mode completing
+
+ON SCREEN CAPTION: "Same real numbers, same real engine — a convenience, not a separate fake backend."
+
+SAY:
+
+"You can see it lands on the same kind of real, computed result — because underneath, it's calling the identical engine."
+
+7:47 — Login screen (post-logout)
+
+ON SCREEN CAPTION: "A complete, protected entry and exit flow behind a real login session."
+
+SAY:
+
+"Finally, logging out. This confirms the application has a complete, protected entry and exit flow — every action you saw today happened behind a real, authenticated session, not an open, unsecured demo page."
+
+7:57 — Closing frame
+
+ON SCREEN CAPTION: "TripRescue does not just react to one broken booking. It recovers the trip."
+
+SAY:
+
+"So, to close. Most travel tools manage bookings one at a time. TripRescue reasons across the entire itinerary as one connected system. It identifies exactly what a disruption breaks, explains precisely why, in the language of real constraints and real numbers. It generates genuinely feasible alternatives, ranks them according to what the traveler actually values, applies the one they choose, and then checks its own work by re-validating the whole trip.
+
+TripRescue doesn't just tell you a booking is delayed. It recovers the trip.
+
+Thank you."
+
+Note: on-screen captions and their exact timings are unchanged from `TripRescue_Final_Demo.srt` / the video itself — this document only adds the fuller spoken explanation around each one, for you to deliver live.
