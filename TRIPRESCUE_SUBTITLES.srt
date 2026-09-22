@@ -1,0 +1,404 @@
+1
+00:00:00,000 --> 00:00:03,500
+Hi, I'm [Your Name], and this is TripRescue —
+
+2
+00:00:03,500 --> 00:00:09,000
+a travel platform I built to solve a problem every traveler knows.
+
+3
+00:00:09,000 --> 00:00:16,000
+Your flight, your hotel, and your plans usually live in
+five different apps and emails, completely disconnected.
+
+4
+00:00:16,000 --> 00:00:22,000
+When something goes wrong — a delay, a missed connection —
+nothing talks to anything else.
+
+5
+00:00:22,000 --> 00:00:26,000
+TripRescue treats your whole trip as one connected system,
+
+6
+00:00:26,000 --> 00:00:33,500
+so when one piece breaks, it knows exactly what else is
+affected, and what to do about it.
+
+7
+00:00:33,500 --> 00:00:35,000
+Let me show you.
+
+8
+00:00:35,000 --> 00:00:37,000
+First, a real account.
+
+9
+00:00:37,000 --> 00:00:43,000
+I'll register with a name, email, and password —
+nothing here is faked or pre-filled.
+
+10
+00:00:43,000 --> 00:00:55,000
+That request goes to our FastAPI backend, which checks the email
+isn't already taken, hashes the password — we never store it
+in plain text — and creates the account.
+
+11
+00:00:55,000 --> 00:01:03,500
+The backend then issues a signed session token, which the
+browser stores and attaches to every request from here on.
+
+12
+00:01:03,500 --> 00:01:15,000
+If I'd typed the wrong password on a login instead, the backend
+would reject it with a clear, generic error — it doesn't reveal
+whether the email even exists.
+
+13
+00:01:15,000 --> 00:01:20,000
+This is a brand-new account, so there's nothing here yet —
+
+14
+00:01:20,000 --> 00:01:26,000
+and that's the honest state, not a placeholder. Let's create a trip.
+
+15
+00:01:26,000 --> 00:01:33,000
+The only thing I type by hand is the trip name,
+origin, destination, and dates —
+
+16
+00:01:33,000 --> 00:01:42,000
+that's genuinely all this form asks for today. When I save,
+the backend creates this trip and attaches it to my account
+specifically —
+
+17
+00:01:42,000 --> 00:01:52,000
+my user ID comes from my session token, not from anything the
+browser sends, so there's no way to fake ownership of a trip.
+
+18
+00:01:52,000 --> 00:02:00,000
+And there it is, showing up immediately on my dashboard.
+
+19
+00:02:00,000 --> 00:02:07,000
+Right now the trip has no itinerary at all, so let's
+add the first real piece: a flight.
+
+20
+00:02:07,000 --> 00:02:14,000
+I enter the airline, the confirmation number, the origin and
+destination airport codes, and the schedule.
+
+21
+00:02:14,000 --> 00:02:20,000
+To be completely honest with you — this is manual entry
+today, not a flight search.
+
+22
+00:02:20,000 --> 00:02:25,000
+Hotels, attractions, and custom events aren't buildable through
+the interface yet either;
+
+23
+00:02:25,000 --> 00:02:32,000
+that's genuinely the next thing on the roadmap, not something
+I'm going to pretend already works.
+
+24
+00:02:32,000 --> 00:02:42,000
+What is real is everything that happens after I save: the backend
+validates the airport codes, checks I actually own this trip,
+
+25
+00:02:42,000 --> 00:02:49,000
+and creates the flight and its matching booking record in
+one atomic database transaction —
+
+26
+00:02:49,000 --> 00:03:00,000
+either both are saved, or neither is, even if something
+fails halfway through.
+
+27
+00:03:00,000 --> 00:03:05,000
+To show you what a fully built-out, connected trip looks like,
+
+28
+00:03:05,000 --> 00:03:11,000
+I'm going to switch to TripRescue's example account —
+Aisha's Ladakh Expedition,
+
+29
+00:03:11,000 --> 00:03:17,000
+an eight-day trip with flights, a hotel, and activities
+already in place.
+
+30
+00:03:17,000 --> 00:03:23,000
+Same login flow, same real backend — this is just
+a different, richer dataset.
+
+31
+00:03:23,000 --> 00:03:26,000
+Here's the Timeline, day by day.
+
+32
+00:03:26,000 --> 00:03:35,000
+Here's the Graph view — this is the actual dependency structure:
+which booking depends on which, and how much buffer time
+sits between them.
+
+33
+00:03:35,000 --> 00:03:43,000
+The Map plots every located stop geographically. And Bookings
+is every confirmation number in one place.
+
+34
+00:03:43,000 --> 00:03:50,000
+All four views are reading the exact same trip data —
+there's no separate copy anywhere.
+
+35
+00:03:50,000 --> 00:03:54,000
+[SIMULATION 1 — Flight Delay, simulated disruption]
+
+36
+00:03:54,000 --> 00:03:58,000
+Now let's break something on purpose.
+
+37
+00:03:58,000 --> 00:04:04,000
+I'm going to simulate a three-hour delay on the
+Mumbai to Delhi flight.
+
+38
+00:04:04,000 --> 00:04:10,000
+For this demonstration, the disruption and the recovery
+response are simulated,
+
+39
+00:04:10,000 --> 00:04:19,000
+so we can show how the product actually behaves during a travel
+interruption — this isn't pulling live flight-status data.
+
+40
+00:04:19,000 --> 00:04:26,000
+But watch what happens next: that delay cascades through the
+whole graph in real time —
+
+41
+00:04:26,000 --> 00:04:33,000
+the tight connection in Delhi is now at risk, and
+everything downstream gets re-evaluated.
+
+42
+00:04:33,000 --> 00:04:41,000
+TripRescue then generates several ranked recovery options,
+each with a real cost and time tradeoff.
+
+43
+00:04:41,000 --> 00:04:44,000
+I'll pick this one.
+
+44
+00:04:44,000 --> 00:04:54,000
+And the itinerary updates immediately — new times, new
+risk levels, propagated everywhere.
+
+45
+00:04:54,000 --> 00:04:56,000
+[SIMULATION 2 — Hotel Cancellation, simulated disruption]
+
+46
+00:04:56,000 --> 00:05:02,000
+Let's try a different kind of disruption — the hotel
+in Leh cancels on us.
+
+47
+00:05:02,000 --> 00:05:08,000
+Again, this is a simulated scenario, not a live
+cancellation notice —
+
+48
+00:05:08,000 --> 00:05:13,000
+but everything downstream of it is computed for real.
+
+49
+00:05:13,000 --> 00:05:19,000
+The engine checks what this hotel was anchoring —
+the activities booked around it —
+
+50
+00:05:19,000 --> 00:05:28,000
+and generates alternatives from its hotel catalogue, which, to
+be clear, is demo data, not a live booking search.
+
+51
+00:05:28,000 --> 00:05:33,000
+I'll compare two options side by side.
+
+52
+00:05:33,000 --> 00:05:40,000
+This one keeps more of the existing plan intact,
+so I'll apply it.
+
+53
+00:05:40,000 --> 00:05:46,000
+Notice the trip's financial exposure and refund numbers
+update too —
+
+54
+00:05:46,000 --> 00:05:56,000
+those are computed live from the actual booking terms,
+not hardcoded.
+
+55
+00:05:56,000 --> 00:05:58,000
+[SIMULATION 3 — Persistence & Isolation, real, not simulated]
+
+56
+00:05:58,000 --> 00:06:06,000
+Unlike the last two, nothing here is simulated —
+this is just the real app under normal conditions.
+
+57
+00:06:06,000 --> 00:06:09,000
+I'll refresh the browser.
+
+58
+00:06:09,000 --> 00:06:13,000
+The recovered trip is still exactly as I left it —
+
+59
+00:06:13,000 --> 00:06:19,000
+that's coming fresh from the database on every load,
+not a client-side cache.
+
+60
+00:06:19,000 --> 00:06:23,000
+I'll log out and log back in.
+
+61
+00:06:23,000 --> 00:06:29,000
+Still there. Now watch this: I'll switch to a second,
+completely separate account.
+
+62
+00:06:29,000 --> 00:06:36,000
+Aisha's trip isn't just hidden — it's not in this
+account's list at all.
+
+63
+00:06:36,000 --> 00:06:40,000
+The backend enforces that at the database query level, using
+the identity from my session token, not anything the browser
+could tamper with.
+
+64
+00:06:40,000 --> 00:06:44,000
+So what's actually running underneath all of this?
+
+65
+00:06:44,000 --> 00:06:51,000
+The frontend is React and Vite, talking to a FastAPI
+backend over a typed API layer.
+
+66
+00:06:51,000 --> 00:06:57,000
+Every request goes through authentication, then an ownership
+check, then real business logic —
+
+67
+00:06:57,000 --> 00:07:05,000
+the propagation, scoring, financial, and refund engines you
+just saw — before anything touches the database through
+SQLAlchemy.
+
+68
+00:07:05,000 --> 00:07:12,000
+For the database itself: locally, I've been running this
+against a real PostgreSQL instance in Docker,
+
+69
+00:07:12,000 --> 00:07:17,000
+with Alembic managing every schema change — not
+a hand-edited table.
+
+70
+00:07:17,000 --> 00:07:26,000
+In production, the backend is hosted on Render, and it's built
+to run against Supabase's managed Postgres the same way —
+
+71
+00:07:26,000 --> 00:07:34,000
+that connection is fully configured and tested locally, though
+I haven't pointed the live production deployment at it yet.
+
+72
+00:07:34,000 --> 00:07:40,000
+So: user click, React state change, API request, authentication,
+ownership check, business logic, database transaction, response,
+and the UI updates — every single time.
+
+73
+00:07:40,000 --> 00:07:43,000
+Let's look at the finished picture.
+
+74
+00:07:43,000 --> 00:07:49,000
+This trip has a real flight I added myself, plus the
+seeded hotel and activity bookings,
+
+75
+00:07:49,000 --> 00:07:53,000
+all shown consistently across Timeline, Graph, Map, and Bookings.
+
+76
+00:07:53,000 --> 00:08:00,000
+It survived two simulated disruptions and came out the other
+side with an updated, still-accurate plan.
+
+77
+00:08:00,000 --> 00:08:05,000
+It's tied to one authenticated account, isolated from
+every other user,
+
+78
+00:08:05,000 --> 00:08:14,000
+and it persists through a refresh or a full logout —
+because it's genuinely stored in a database, not held
+together by browser state.
+
+79
+00:08:14,000 --> 00:08:22,000
+One more view before we close: Risk Intelligence, which
+continuously scores every leg of the trip for exposure —
+
+80
+00:08:22,000 --> 00:08:30,000
+that's the same engine that powers the disruption simulations
+you just saw, just running proactively instead of reactively.
+
+81
+00:08:30,000 --> 00:08:37,000
+That's TripRescue: real authentication, a real database, real
+disruption and recovery logic,
+
+82
+00:08:37,000 --> 00:08:44,000
+and a connected view of your entire trip instead of
+five disconnected ones.
+
+83
+00:08:44,000 --> 00:08:54,000
+Today it supports flights end-to-end, with hotels, activities,
+and live provider search as the clear next step —
+
+84
+00:08:54,000 --> 00:09:00,000
+the architecture is already built to support them.
+Thanks for watching.
