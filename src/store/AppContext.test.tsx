@@ -20,6 +20,7 @@ vi.mock('@/services/api', async () => {
     markNotificationsRead: vi.fn(),
     createTrip: vi.fn(),
     listTrips: vi.fn(),
+    addFlightNode: vi.fn(),
   };
 });
 
@@ -251,6 +252,48 @@ describe('AppContext', () => {
     });
     await waitFor(() => expect(result.current.trip.id).toBe('trip-new'));
     expect(result.current.tripId).toBe('trip-new');
+  });
+
+  it('adds a flight via the API and replaces trip state wholesale from the backend response', async () => {
+    vi.mocked(api.getItinerary).mockResolvedValue(baseTrip());
+    const { result } = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.trip.nodes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'n1' }), expect.objectContaining({ id: 'n2' })])
+    );
+
+    const withFlight = baseTrip({
+      nodes: [
+        {
+          id: 'flight-1', category: 'flight', label: 'Flight', title: 'Delhi to Mumbai', subtitle: '',
+          location: 'DEL', scheduledTime: '', provider: 'IndiGo', cost: 5500, cancellationPolicy: '',
+          refundable: false, riskLevel: 0, dependencyCount: 0, status: 'healthy', day: 1, icon: 'plane',
+        },
+      ],
+      edges: [],
+    });
+    vi.mocked(api.addFlightNode).mockResolvedValue(withFlight);
+
+    await act(async () => {
+      await result.current.addFlightNode({
+        category: 'flight',
+        title: 'Delhi to Mumbai',
+        provider: 'IndiGo',
+        confirmation: '6E-999',
+        originCode: 'DEL',
+        destinationCode: 'BOM',
+        scheduledStart: '2026-05-01T08:00',
+        scheduledEnd: '2026-05-01T10:15',
+        cost: 5500,
+      });
+    });
+
+    expect(api.addFlightNode).toHaveBeenCalledWith('trip-ladakh-2025', expect.objectContaining({ title: 'Delhi to Mumbai' }));
+    // Trip state was replaced wholesale from the backend's authoritative
+    // response - never a client-fabricated node appended to local state.
+    expect(result.current.trip.nodes).toHaveLength(1);
+    expect(result.current.trip.nodes[0].id).toBe('flight-1');
+    expect(result.current.trip.edges).toEqual([]);
   });
 
   it('resets disruption/recovery state and reloads when switching trips', async () => {

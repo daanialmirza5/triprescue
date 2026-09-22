@@ -79,6 +79,7 @@ type Action =
   | { type: 'SET_RECOVERY_OPTIONS'; options: RecoveryOption[] }
   | { type: 'SELECT_RECOVERY'; recoveryId: string | null }
   | { type: 'RECOVERY_APPLIED'; trip: Trip; recovery: RecoveryOption }
+  | { type: 'NODE_ADDED'; trip: Trip }
   | { type: 'TRIP_RESET'; trip: Trip }
   | { type: 'MARK_NOTIFICATIONS_READ' }
   | { type: 'REFRESH_ACTIVITY'; activityLog: ActivityEvent[]; notifications: Notification[] }
@@ -186,6 +187,11 @@ function reducer(state: AppState, action: Action): AppState {
         phase: 'recovered',
         selectedRecovery: action.recovery.id,
       };
+    case 'NODE_ADDED':
+      // Replaces trip wholesale from the backend's authoritative response -
+      // never a client-fabricated node inserted into local state ahead of
+      // (or instead of) real API confirmation.
+      return { ...state, trip: action.trip };
     case 'TRIP_RESET':
       return {
         ...state,
@@ -240,6 +246,7 @@ interface AppContextValue extends AppState {
   reload: () => Promise<void>;
   switchTrip: (tripId: string) => void;
   createTrip: (req: api.TripCreateRequest) => Promise<Trip>;
+  addFlightNode: (req: api.FlightCreateRequest) => Promise<Trip>;
   triggerDisruption: (type: string, options?: { primaryNodeId?: string; delayMinutes?: number }) => Promise<void>;
   loadRecoveryOptions: () => Promise<void>;
   selectRecovery: (id: string | null) => void;
@@ -345,6 +352,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [switchTrip]
   );
+
+  const addFlightNode = useCallback(async (req: api.FlightCreateRequest) => {
+    const trip = await api.addFlightNode(state.tripId, req);
+    dispatch({ type: 'NODE_ADDED', trip });
+    return trip;
+  }, [state.tripId]);
 
   useEffect(() => {
     reload();
@@ -506,6 +519,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         reload,
         switchTrip,
         createTrip,
+        addFlightNode,
         triggerDisruption,
         loadRecoveryOptions,
         selectRecovery,

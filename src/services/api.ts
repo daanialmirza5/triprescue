@@ -176,6 +176,22 @@ export async function createTrip(req: TripCreateRequest): Promise<Trip> {
   return post<Trip>('/api/trips', req);
 }
 
+export interface FlightCreateRequest {
+  category: 'flight';
+  title: string;
+  provider: string;
+  confirmation: string;
+  originCode: string;
+  destinationCode: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  cost: number;
+}
+
+export async function addFlightNode(tripId: string, req: FlightCreateRequest): Promise<Trip> {
+  return post<Trip>(`/api/trips/${tripId}/nodes`, req);
+}
+
 export async function getItinerary(tripId: string): Promise<Trip> {
   return get<Trip>(`/api/trips/${tripId}`);
 }
