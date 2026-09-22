@@ -80,6 +80,7 @@ type Action =
   | { type: 'SELECT_RECOVERY'; recoveryId: string | null }
   | { type: 'RECOVERY_APPLIED'; trip: Trip; recovery: RecoveryOption }
   | { type: 'NODE_ADDED'; trip: Trip }
+  | { type: 'NODE_REMOVED'; trip: Trip }
   | { type: 'TRIP_RESET'; trip: Trip }
   | { type: 'MARK_NOTIFICATIONS_READ' }
   | { type: 'REFRESH_ACTIVITY'; activityLog: ActivityEvent[]; notifications: Notification[] }
@@ -192,6 +193,8 @@ function reducer(state: AppState, action: Action): AppState {
       // never a client-fabricated node inserted into local state ahead of
       // (or instead of) real API confirmation.
       return { ...state, trip: action.trip };
+    case 'NODE_REMOVED':
+      return { ...state, trip: action.trip };
     case 'TRIP_RESET':
       return {
         ...state,
@@ -247,6 +250,8 @@ interface AppContextValue extends AppState {
   switchTrip: (tripId: string) => void;
   createTrip: (req: api.TripCreateRequest) => Promise<Trip>;
   addFlightNode: (req: api.FlightCreateRequest) => Promise<Trip>;
+  addNode: (req: api.NodeCreateRequest) => Promise<Trip>;
+  deleteNode: (nodeId: string) => Promise<Trip>;
   triggerDisruption: (type: string, options?: { primaryNodeId?: string; delayMinutes?: number }) => Promise<void>;
   loadRecoveryOptions: () => Promise<void>;
   selectRecovery: (id: string | null) => void;
@@ -356,6 +361,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addFlightNode = useCallback(async (req: api.FlightCreateRequest) => {
     const trip = await api.addFlightNode(state.tripId, req);
     dispatch({ type: 'NODE_ADDED', trip });
+    return trip;
+  }, [state.tripId]);
+
+  const addNode = useCallback(async (req: api.NodeCreateRequest) => {
+    const trip = await api.addNode(state.tripId, req);
+    dispatch({ type: 'NODE_ADDED', trip });
+    return trip;
+  }, [state.tripId]);
+
+  const deleteNode = useCallback(async (nodeId: string) => {
+    const trip = await api.deleteNode(state.tripId, nodeId);
+    dispatch({ type: 'NODE_REMOVED', trip });
     return trip;
   }, [state.tripId]);
 
@@ -520,6 +537,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         switchTrip,
         createTrip,
         addFlightNode,
+        addNode,
+        deleteNode,
         triggerDisruption,
         loadRecoveryOptions,
         selectRecovery,
