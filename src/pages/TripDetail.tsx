@@ -8,8 +8,10 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { BookingsPage } from '@/pages/BookingsPage';
 import { RiskIntelligence } from '@/pages/RiskIntelligence';
 import { AddFlightModal } from '@/components/trip/AddFlightModal';
+import { AddAccommodationModal } from '@/components/trip/AddAccommodationModal';
+import { AddActivityModal } from '@/components/trip/AddActivityModal';
 import { cn } from '@/lib/utils';
-import { Plane, Calendar, GitBranch, Map as MapIcon, ClipboardList, ShieldAlert, Clock, Plus } from 'lucide-react';
+import { Plane, Building2, Compass, Calendar, GitBranch, Map as MapIcon, ClipboardList, ShieldAlert, Clock, Plus } from 'lucide-react';
 
 type Tab = 'timeline' | 'graph' | 'map' | 'bookings' | 'risks';
 
@@ -25,6 +27,8 @@ export function TripDetail() {
   const { trip, appliedRecovery } = useApp();
   const [tab, setTab] = useState<Tab>('timeline');
   const [addFlightOpen, setAddFlightOpen] = useState(false);
+  const [addAccommodationOpen, setAddAccommodationOpen] = useState(false);
+  const [addActivityOpen, setAddActivityOpen] = useState(false);
   const hasNodes = trip.nodes.length > 0;
 
   return (
@@ -45,13 +49,27 @@ export function TripDetail() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => setAddFlightOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100"
+              className="flex items-center gap-1.5 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Flight
+            </button>
+            <button
+              onClick={() => setAddAccommodationOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Add Stay
+            </button>
+            <button
+              onClick={() => setAddActivityOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100"
+            >
+              <Compass className="h-3.5 w-3.5" />
+              Add Activity
             </button>
             <ScoreRing score={trip.healthScore} size={70} strokeWidth={6} label="Health" />
           </div>
@@ -157,6 +175,22 @@ export function TripDetail() {
           {tab === 'risks' && <RiskIntelligence />}
         </>
       )}
+
+      <AddFlightModal
+        open={addFlightOpen}
+        onClose={() => setAddFlightOpen(false)}
+        onAdded={() => setAddFlightOpen(false)}
+      />
+      <AddAccommodationModal
+        open={addAccommodationOpen}
+        onClose={() => setAddAccommodationOpen(false)}
+        onAdded={() => setAddAccommodationOpen(false)}
+      />
+      <AddActivityModal
+        open={addActivityOpen}
+        onClose={() => setAddActivityOpen(false)}
+        onAdded={() => setAddActivityOpen(false)}
+      />
     </div>
   );
 }
