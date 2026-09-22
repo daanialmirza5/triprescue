@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/store/AppContext';
+import { exportTrip } from '@/services/api';
 import { ItineraryGraph } from '@/components/graph/ItineraryGraph';
 import { MapView } from '@/pages/MapView';
 import { BeforeAfterView } from '@/components/recovery/BeforeAfterView';
@@ -11,7 +12,7 @@ import { AddFlightModal } from '@/components/trip/AddFlightModal';
 import { AddAccommodationModal } from '@/components/trip/AddAccommodationModal';
 import { AddActivityModal } from '@/components/trip/AddActivityModal';
 import { cn } from '@/lib/utils';
-import { Plane, Building2, Compass, Calendar, GitBranch, Map as MapIcon, ClipboardList, ShieldAlert, Clock, Plus } from 'lucide-react';
+import { Plane, Building2, Compass, Download, Calendar, GitBranch, Map as MapIcon, ClipboardList, ShieldAlert, Clock, Plus, Loader2 } from 'lucide-react';
 
 type Tab = 'timeline' | 'graph' | 'map' | 'bookings' | 'risks';
 
@@ -29,7 +30,29 @@ export function TripDetail() {
   const [addFlightOpen, setAddFlightOpen] = useState(false);
   const [addAccommodationOpen, setAddAccommodationOpen] = useState(false);
   const [addActivityOpen, setAddActivityOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const hasNodes = trip.nodes.length > 0;
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await exportTrip(trip.id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `trip-rescue-${trip.id}-export.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -70,6 +93,15 @@ export function TripDetail() {
             >
               <Compass className="h-3.5 w-3.5" />
               Add Activity
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-1.5 rounded-lg border border-ink-600 px-3 py-1.5 text-xs text-ink-300 transition hover:border-accent-500/40 hover:bg-accent-500/5 hover:text-ink-100 disabled:opacity-50"
+              title="Export Trip JSON Backup"
+            >
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              Export JSON
             </button>
             <ScoreRing score={trip.healthScore} size={70} strokeWidth={6} label="Health" />
           </div>
