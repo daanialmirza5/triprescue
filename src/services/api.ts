@@ -245,6 +245,17 @@ export async function deleteNode(tripId: string, nodeId: string): Promise<Trip> 
   return del<Trip>(`/api/trips/${tripId}/nodes/${nodeId}`);
 }
 
+export interface TripExport {
+  exportedAt: string;
+  version: string;
+  trip: Trip;
+  bookings: Booking[];
+}
+
+export async function exportTrip(tripId: string): Promise<TripExport> {
+  return get<TripExport>(`/api/trips/${tripId}/export`);
+}
+
 export async function getItinerary(tripId: string): Promise<Trip> {
   return get<Trip>(`/api/trips/${tripId}`);
 }
