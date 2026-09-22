@@ -35,6 +35,12 @@ class TripNotFoundError(Exception):
     pass
 
 
+class NodeNotFoundError(Exception):
+    def __init__(self, node_id: str):
+        super().__init__(f"Node '{node_id}' not found")
+        self.node_id = node_id
+
+
 def _node_to_out(node: ItineraryNode, risk_percent: int) -> NodeOut:
     buffer_text = None
     if node.category.value == "connection":
@@ -259,6 +265,33 @@ def add_node(db: Session, trip_id: str, traveler_id: str, request: NodeCreateReq
 
 # Backwards compatibility alias for add_flight_node
 add_flight_node = add_node
+
+
+def delete_node(db: Session, trip_id: str, node_id: str, traveler_id: str) -> TripOut:
+    """Removes an itinerary node, its associated booking, and any connected
+    dependency edges atomically, adjusting total trip value accordingly."""
+    from app.models.booking import Booking as BookingModel
+    from app.models.dependency_edge import DependencyEdge
+    from sqlalchemy import delete
+
+    trip = get_trip(db, trip_id, traveler_id)  # ownership check
+    node_repo = NodeRepository(db)
+    node = node_repo.get(node_id)
+    if not node or node.trip_id != trip_id:
+        raise NodeNotFoundError(node_id)
+
+    trip.trip_value = max(0.0, trip.trip_value - node.cost)
+
+    db.execute(delete(BookingModel).where(BookingModel.node_id == node_id))
+    db.execute(
+        delete(DependencyEdge).where(
+            (DependencyEdge.source_id == node_id) | (DependencyEdge.target_id == node_id)
+        )
+    )
+    db.delete(node)
+    db.commit()
+
+    return get_trip_out(db, trip_id, traveler_id)
 
 
 def list_trip_summaries(db: Session, traveler_id: str | None = None) -> list[TripSummaryOut]:

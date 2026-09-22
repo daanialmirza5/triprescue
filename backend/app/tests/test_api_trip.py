@@ -458,3 +458,47 @@ def test_set_preferences(client):
         json={"costVsSpeed": 20, "disruptionVsComfort": 80, "recoveryPriorities": {}},
     )
     assert resp.status_code == 204
+
+
+def test_authenticated_owner_can_delete_a_node(client):
+    user = _register(client, name="Deleter", email="deleter@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    add_resp = client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+    assert add_resp.status_code == 201
+    node_id = add_resp.json()["nodes"][0]["id"]
+
+    del_resp = client.delete(f"/api/trips/{trip['id']}/nodes/{node_id}", headers=headers)
+    assert del_resp.status_code == 200
+    assert len(del_resp.json()["nodes"]) == 0
+    assert del_resp.json()["tripValue"] == 0.0
+
+    bookings = client.get(f"/api/trips/{trip['id']}/bookings", headers=headers).json()
+    assert len(bookings) == 0
+
+
+def test_deleting_nonexistent_node_is_404(client):
+    user = _register(client, name="Missing Node Deleter", email="missing.del@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+
+    del_resp = client.delete(f"/api/trips/{trip['id']}/nodes/nonexistent-node-id", headers=headers)
+    assert del_resp.status_code == 404
+
+
+def test_different_user_cannot_delete_a_node(client):
+    owner = _register(client, name="Node Owner", email="node.owner@example.com")
+    trip = _create_owned_trip(client, owner["token"])
+    add_resp = client.post(
+        f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=_auth_header(owner["token"])
+    )
+    node_id = add_resp.json()["nodes"][0]["id"]
+
+    intruder = _register(client, name="Node Intruder", email="node.intruder@example.com")
+    del_resp = client.delete(f"/api/trips/{trip['id']}/nodes/{node_id}", headers=_auth_header(intruder["token"]))
+    assert del_resp.status_code == 404
+
+    # Ensure node still exists for owner
+    fetched = client.get(f"/api/trips/{trip['id']}", headers=_auth_header(owner["token"])).json()
+    assert len(fetched["nodes"]) == 1
