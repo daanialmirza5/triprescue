@@ -159,3 +159,10 @@ class BookingOut(CamelModel):
     risk_level: int
     route: str | None = None
     node_id: str
+
+
+class TripExportOut(CamelModel):
+    exported_at: str
+    version: str = "1.0"
+    trip: TripOut
+    bookings: list[BookingOut]

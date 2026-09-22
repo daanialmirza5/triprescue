@@ -502,3 +502,28 @@ def test_different_user_cannot_delete_a_node(client):
     # Ensure node still exists for owner
     fetched = client.get(f"/api/trips/{trip['id']}", headers=_auth_header(owner["token"])).json()
     assert len(fetched["nodes"]) == 1
+
+
+def test_export_trip_returns_full_snapshot(client):
+    user = _register(client, name="Exporter", email="exporter@example.com")
+    headers = _auth_header(user["token"])
+    trip = _create_owned_trip(client, user["token"])
+    client.post(f"/api/trips/{trip['id']}/nodes", json=_valid_flight_payload(), headers=headers)
+
+    resp = client.get(f"/api/trips/{trip['id']}/export", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["version"] == "1.0"
+    assert "exportedAt" in data
+    assert data["trip"]["id"] == trip["id"]
+    assert len(data["trip"]["nodes"]) == 1
+    assert len(data["bookings"]) == 1
+
+
+def test_export_trip_enforces_auth_isolation(client):
+    owner = _register(client, name="Trip Exporter Owner", email="exp.owner@example.com")
+    trip = _create_owned_trip(client, owner["token"])
+
+    intruder = _register(client, name="Trip Exporter Intruder", email="exp.intruder@example.com")
+    resp = client.get(f"/api/trips/{trip['id']}/export", headers=_auth_header(intruder["token"]))
+    assert resp.status_code == 404

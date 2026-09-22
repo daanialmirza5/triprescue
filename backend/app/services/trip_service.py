@@ -18,7 +18,16 @@ from app.repositories.trip_repository import TripRepository
 from app.schemas.activity import ActivityEventOut
 from app.schemas.common import TravelerPreferences
 from app.schemas.notification import NotificationOut
-from app.schemas.trip import BookingOut, EdgeOut, NodeCreateRequest, NodeOut, TripDayOut, TripOut, TripSummaryOut
+from app.schemas.trip import (
+    BookingOut,
+    EdgeOut,
+    NodeCreateRequest,
+    NodeOut,
+    TripDayOut,
+    TripExportOut,
+    TripOut,
+    TripSummaryOut,
+)
 from app.services.converters import (
     format_date,
     format_time,
@@ -409,3 +418,18 @@ def reset_trip_out(db: Session, trip_id: str, traveler_id: str | None = None) ->
     )
     db.commit()
     return get_trip_out(db, trip_id)
+
+
+def export_trip(db: Session, trip_id: str, traveler_id: str | None = None) -> TripExportOut:
+    """Exports a complete snapshot of a trip including its itinerary nodes,
+    graph edges, day groupings, and booking confirmations."""
+    from datetime import datetime, timezone
+
+    trip_out = get_trip_out(db, trip_id, traveler_id)
+    bookings = get_bookings_out(db, trip_id, traveler_id)
+    return TripExportOut(
+        exported_at=datetime.now(timezone.utc).isoformat(),
+        version="1.0",
+        trip=trip_out,
+        bookings=bookings,
+    )
