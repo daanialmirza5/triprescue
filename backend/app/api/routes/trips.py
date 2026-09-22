@@ -7,7 +7,7 @@ from app.schemas.activity import ActivityEventOut
 from app.schemas.common import TravelerPreferences
 from app.schemas.notification import NotificationOut
 from app.schemas.risk import RiskAnalysisOut
-from app.schemas.trip import BookingOut, NodeCreateRequest, TripCreateRequest, TripOut, TripSummaryOut
+from app.schemas.trip import BookingOut, NodeCreateRequest, TripCreateRequest, TripExportOut, TripOut, TripSummaryOut
 from app.services import risk_service, trip_service
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
@@ -80,6 +80,14 @@ def get_trip_graph(trip_id: str, db: Session = Depends(get_db), traveler_id: str
     distinct endpoint since the frontend graph view addresses it separately."""
     try:
         return trip_service.get_trip_out(db, trip_id, traveler_id)
+    except trip_service.TripNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+
+
+@router.get("/{trip_id}/export", response_model=TripExportOut)
+def export_trip(trip_id: str, db: Session = Depends(get_db), traveler_id: str = Depends(get_current_traveler_id)):
+    try:
+        return trip_service.export_trip(db, trip_id, traveler_id)
     except trip_service.TripNotFoundError:
         raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
 
