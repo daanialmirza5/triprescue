@@ -25,6 +25,22 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: triprescue-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-triprescue}:${POSTGRES_PASSWORD:-triprescue}@postgres:5432/${POSTGRES_DB:-triprescue}
+      SECRET_KEY: ${SECRET_KEY:-triprescue_dev_secret_key_change_in_prod}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   triprescue_postgres_data:
     name: triprescue_postgres_data
