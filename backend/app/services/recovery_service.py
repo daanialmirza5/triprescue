@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -295,7 +295,7 @@ def apply_recovery(
     remaining_broken = any(impacts[n.id].status == "broken" for n in nodes)
     disruption.resolved = not remaining_broken
     plan.applied = True
-    plan.applied_at = datetime.utcnow()
+    plan.applied_at = datetime.now(timezone.utc)
 
     trip.status = TripStatus.RECOVERED if not remaining_broken else TripStatus.RECOVERING
     trip.health_score = _itinerary_engine.compute_health_score(engine_nodes, engine_edges, impacts)
