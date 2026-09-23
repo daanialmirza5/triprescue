@@ -81,3 +81,51 @@ def test_validate_graph_reports_cycle_errors():
     g = GraphEngine(["a", "b"], [("a", "b"), ("b", "a")])
     errors = g.validate_graph()
     assert any("Cycle" in e for e in errors)
+
+
+def test_empty_graph():
+    g = GraphEngine()
+    assert g.nodes == set()
+    assert g.edges() == []
+    assert g.validate_graph() == []
+    assert g.topological_order() == []
+    assert g.detect_cycles() == []
+
+
+def test_isolated_nodes_topological_order():
+    g = GraphEngine(node_ids=["node1", "node2", "node3"], edges=[])
+    order = g.topological_order()
+    assert len(order) == 3
+    assert set(order) == {"node1", "node2", "node3"}
+    assert g.get_downstream_nodes("node1") == []
+    assert g.get_upstream_nodes("node1") == []
+    assert g.calculate_dependencies() == {"node1": 0, "node2": 0, "node3": 0}
+
+
+def test_disconnected_subgraph_components():
+    # Subgraph 1: a -> b
+    # Subgraph 2: x -> y -> z
+    # Isolated: solo
+    g = GraphEngine(
+        node_ids=["a", "b", "x", "y", "z", "solo"],
+        edges=[("a", "b"), ("x", "y"), ("y", "z")],
+    )
+    assert g.validate_graph() == []
+    order = g.topological_order()
+    assert len(order) == 6
+    assert order.index("a") < order.index("b")
+    assert order.index("x") < order.index("y") < order.index("z")
+    assert "solo" in order
+    assert g.get_downstream_nodes("solo") == []
+    assert g.get_upstream_nodes("solo") == []
+    assert g.get_downstream_nodes("x") == ["y", "z"]
+
+
+def test_self_loop_detected_as_cycle():
+    g = GraphEngine(node_ids=["a"], edges=[("a", "a")])
+    cycles = g.detect_cycles()
+    assert len(cycles) >= 1
+    assert len(g.validate_graph()) >= 1
+    with pytest.raises(GraphValidationError):
+        g.topological_order()
+
