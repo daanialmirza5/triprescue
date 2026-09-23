@@ -16,10 +16,12 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undef
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  details?: unknown;
+  constructor(message: string, status: number, details?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -65,13 +67,20 @@ async function attempt<T>(path: string, options: RequestInit, timeoutMs: number)
 
   if (!response.ok) {
     let detail = response.statusText || `Request failed (${response.status})`;
+    let details: unknown = undefined;
     try {
       const body = await response.json();
-      if (typeof body?.detail === 'string') detail = body.detail;
+      if (typeof body?.detail === 'string') {
+        detail = body.detail;
+      } else if (Array.isArray(body?.detail)) {
+        const joined = body.detail.map((d: { msg?: string }) => d.msg ?? '').filter(Boolean).join(', ');
+        if (joined) detail = joined;
+        details = body.detail;
+      }
     } catch {
       // response had no JSON body - keep the status text
     }
-    throw new ApiError(detail, response.status);
+    throw new ApiError(detail, response.status, details);
   }
 
   if (response.status === 204) return undefined as T;
