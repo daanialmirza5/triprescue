@@ -72,3 +72,37 @@ def test_breakdown_component_handles_missing_or_partial_data_without_crashing():
     assert _breakdown_component(breakdown, "cost") == "42"
     assert _breakdown_component(breakdown, "risk") == "n/a"
     assert _breakdown_component({}, "cost") == "n/a"
+
+
+def test_assistant_rejects_empty_or_whitespace_only_message(client):
+    resp = client.post(
+        "/api/assistant",
+        json={"tripId": "trip-ladakh-2025", "message": "   "},
+    )
+    assert resp.status_code == 422
+
+
+def test_assistant_rejects_missing_trip_id(client):
+    resp = client.post(
+        "/api/assistant",
+        json={"tripId": "   ", "message": "What is the status?"},
+    )
+    assert resp.status_code == 422
+
+
+def test_assistant_rejects_excessively_long_message(client):
+    oversized_message = "A" * 2001
+    resp = client.post(
+        "/api/assistant",
+        json={"tripId": "trip-ladakh-2025", "message": oversized_message},
+    )
+    assert resp.status_code == 422
+
+
+def test_assistant_unknown_trip_returns_404(client):
+    resp = client.post(
+        "/api/assistant",
+        json={"tripId": "trip-non-existent-9999", "message": "What is the status?"},
+    )
+    assert resp.status_code == 404
+
