@@ -459,6 +459,45 @@ def test_set_preferences(client):
     )
     assert resp.status_code == 204
 
+    get_resp = client.get("/api/trips/trip-ladakh-2025/preferences")
+    assert get_resp.status_code == 200
+    pref = get_resp.json()
+    assert pref["costVsSpeed"] == 20
+    assert pref["disruptionVsComfort"] == 80
+
+
+def test_preferences_user_isolation(client):
+    owner = _register(client, name="Pref Owner", email="pref.owner@example.com")
+    headers = _auth_header(owner["token"])
+    trip = _create_owned_trip(client, owner["token"])
+
+    set_resp = client.post(
+        f"/api/trips/{trip['id']}/preferences",
+        json={"costVsSpeed": 90, "disruptionVsComfort": 10, "recoveryPriorities": {}},
+        headers=headers,
+    )
+    assert set_resp.status_code == 204
+
+    intruder = _register(client, name="Pref Intruder", email="pref.intruder@example.com")
+    intruder_headers = _auth_header(intruder["token"])
+
+    # Intruder cannot get owner's preferences
+    assert client.get(f"/api/trips/{trip['id']}/preferences", headers=intruder_headers).status_code == 404
+    # Intruder cannot modify owner's preferences
+    assert (
+        client.post(
+            f"/api/trips/{trip['id']}/preferences",
+            json={"costVsSpeed": 10, "disruptionVsComfort": 90, "recoveryPriorities": {}},
+            headers=intruder_headers,
+        ).status_code
+        == 404
+    )
+
+
+def test_preferences_non_existent_trip_returns_404(client):
+    resp = client.get("/api/trips/non-existent-trip-9999/preferences")
+    assert resp.status_code == 404
+
 
 def test_authenticated_owner_can_delete_a_node(client):
     user = _register(client, name="Deleter", email="deleter@example.com")
