@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api.routes import assistant, auth, disruptions, health, recovery, trips
 from app.config import get_settings
+from app.core.middleware import RequestTimingMiddleware
 from app.core.rate_limiting import limiter
 from app.database.base import Base
 from app.database.seed import seed_if_empty
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="TripRescue API", version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
+app.add_middleware(RequestTimingMiddleware)
 
 settings = get_settings()
 app.add_middleware(
