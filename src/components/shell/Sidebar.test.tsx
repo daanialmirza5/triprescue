@@ -21,7 +21,7 @@ describe('Sidebar Component', () => {
         homeAirport: 'DEL',
       },
       logout: mockLogout,
-    } as any);
+    } as unknown as ReturnType<typeof AuthContextModule.useAuth>);
   });
 
   it('renders navigation items and active state correctly', () => {

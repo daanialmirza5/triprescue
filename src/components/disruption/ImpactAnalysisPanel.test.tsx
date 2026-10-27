@@ -11,7 +11,10 @@ vi.mock('@/store/AppContext', () => ({
 const mockTrip: Trip = {
   id: 'trip-1',
   name: 'Ladakh Expedition',
+  travelerName: 'Test Traveler',
   route: 'DEL - IXL',
+  origin: 'Delhi',
+  destination: 'Leh',
   startDate: '2025-06-01',
   endDate: '2025-06-07',
   tripValue: 75000,
@@ -20,25 +23,32 @@ const mockTrip: Trip = {
   nodes: [
     {
       id: 'node-flight-1',
-      tripId: 'trip-1',
       category: 'flight',
+      label: 'AI-445',
       title: 'AI-445 Delhi to Leh',
-      status: 'broken',
-      impactSeverity: 'critical',
-      scheduledStart: '2025-06-01T06:00:00Z',
-      scheduledEnd: '2025-06-01T07:30:00Z',
-      dependencies: [],
-      cost: 15000,
+      subtitle: 'DEL → IXL',
+      location: 'Delhi',
+      scheduledTime: '06:00',
       provider: 'Air India',
       confirmation: 'AI-1234',
+      cost: 15000,
+      cancellationPolicy: 'Non-refundable',
+      refundable: false,
+      riskLevel: 90,
+      dependencyCount: 3,
+      status: 'broken',
+      day: 1,
+      icon: 'plane',
+      scheduledStart: '2025-06-01T06:00:00Z',
+      scheduledEnd: '2025-06-01T07:30:00Z',
     },
   ],
   edges: [],
+  days: [],
 };
 
 const mockDisruption: Disruption = {
   id: 'disruption-1',
-  tripId: 'trip-1',
   type: 'flight-delay',
   label: '3 Hour Fog Delay at DEL',
   primaryNodeId: 'node-flight-1',
@@ -49,29 +59,18 @@ const mockDisruption: Disruption = {
   financialExposure: 35000,
   refundExposure: 20000,
   detectedAt: '2025-06-01T06:00:00Z',
-  resolved: false,
   cascadeSteps: [
     {
       id: 'step-1',
-      disruptionId: 'disruption-1',
-      affectedNodeId: 'node-flight-1',
-      impactType: 'delayed',
+      nodeId: 'node-flight-1',
       description: 'Flight AI-445 departure delayed by 180 minutes due to weather',
-      delayMinutes: 180,
-      timeBufferUsed: 0,
-      financialImpact: 0,
-      sequenceOrder: 1,
+      timestamp: '2025-06-01T06:00:00Z',
     },
     {
       id: 'step-2',
-      disruptionId: 'disruption-1',
-      affectedNodeId: 'node-transfer-1',
-      impactType: 'broken',
+      nodeId: 'node-transfer-1',
       description: 'Missed airport prepaid cab transfer in Leh',
-      delayMinutes: 180,
-      timeBufferUsed: 30,
-      financialImpact: 2500,
-      sequenceOrder: 2,
+      timestamp: '2025-06-01T07:30:00Z',
     },
   ],
 };
@@ -82,7 +81,7 @@ describe('ImpactAnalysisPanel Component', () => {
       activeDisruption: null,
       trip: mockTrip,
       phase: 'monitoring',
-    } as any);
+    } as unknown as ReturnType<typeof AppContextModule.useApp>);
 
     const { container } = render(<ImpactAnalysisPanel />);
     expect(container.firstChild).toBeNull();
@@ -93,7 +92,7 @@ describe('ImpactAnalysisPanel Component', () => {
       activeDisruption: mockDisruption,
       trip: mockTrip,
       phase: 'analyzing',
-    } as any);
+    } as unknown as ReturnType<typeof AppContextModule.useApp>);
 
     render(<ImpactAnalysisPanel />);
 

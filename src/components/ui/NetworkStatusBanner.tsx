@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onColdStartRetry } from '@/services/api';
-import { WifiOff, Server, RefreshCw } from 'lucide-react';
+import { WifiOff, RefreshCw } from 'lucide-react';
 
 export function NetworkStatusBanner() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);

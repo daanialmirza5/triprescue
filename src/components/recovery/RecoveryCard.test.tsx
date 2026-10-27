@@ -22,6 +22,7 @@ const mockOption: RecoveryOption = {
     speed: 95,
     preservation: 100,
     comfort: 90,
+    risk: 85,
   },
 };
 
