@@ -17,8 +17,8 @@ describe('AIAssistant Component', () => {
     vi.clearAllMocks();
     vi.mocked(AppContextModule.useApp).mockReturnValue({
       tripId: 'trip-1',
-      trip: { name: 'Ladakh Expedition' } as any,
-    } as any);
+      trip: { name: 'Ladakh Expedition' },
+    } as unknown as ReturnType<typeof AppContextModule.useApp>);
   });
 
   it('renders nothing when open is false', () => {
