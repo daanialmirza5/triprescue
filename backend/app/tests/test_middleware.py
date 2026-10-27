@@ -6,7 +6,7 @@ client = TestClient(app)
 
 
 def test_request_timing_and_id_headers():
-    response = client.get("/health")
+    response = client.get("/healthz")
     assert response.status_code == 200
     assert "X-Process-Time-Ms" in response.headers
     assert "X-Request-ID" in response.headers
@@ -15,6 +15,6 @@ def test_request_timing_and_id_headers():
 
 def test_custom_request_id_preserved():
     custom_id = "custom-trace-header-12345"
-    response = client.get("/health", headers={"X-Request-ID": custom_id})
+    response = client.get("/healthz", headers={"X-Request-ID": custom_id})
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == custom_id
