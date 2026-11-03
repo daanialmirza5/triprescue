@@ -2,7 +2,9 @@ name: Keep Backend Alive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # 09:30-23:30 IST only. Render's free tier shares 750 instance-hours a month across all
+    # free services; pinging around the clock used nearly all of them for this one backend.
+    - cron: "*/10 4-17 * * *"
   workflow_dispatch: {}
 
 jobs:
