@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
+
 from sqlalchemy.orm import Session
 
 from app.engines.financial_engine import FinancialEngine
@@ -9,10 +12,37 @@ from app.repositories.node_repository import NodeRepository
 from app.schemas.risk import AlertOut, RiskAnalysisOut, RiskCardOut, RiskScoreOut
 from app.services.converters import refresh_dependency_counts, to_engine_edge, to_engine_node
 from app.services.trip_service import get_trip
+from app.config import get_settings
+from app.providers.weather_provider import OpenMeteoWeatherProvider
 
 _itinerary_engine = ItineraryEngine()
 _risk_engine = RiskEngine()
 _financial_engine = FinancialEngine()
+_settings = get_settings()
+_weather_provider = OpenMeteoWeatherProvider(timeout_seconds=_settings.weather_request_timeout_seconds)
+
+# Time-of-day weather heuristic (TRD §3.1.1): bookings before 06:00 or from 20:00
+# carry more weather/operations exposure. Deterministic baseline for the blend.
+_WEATHER_HEURISTIC_BASE = 8  # the long-standing neutral weather score
+_WEATHER_HEURISTIC_ODD_HOURS_WEIGHT = 30
+_WEATHER_ODD_HOUR_BEFORE, _WEATHER_ODD_HOUR_FROM = 6, 20
+
+
+def _time_of_day_weather_heuristic(nodes: list) -> int:
+    """Base score plus up to 30 points for the share of bookings scheduled in
+    the early-morning/late-night window. Pure function of the itinerary."""
+    if not nodes:
+        return _WEATHER_HEURISTIC_BASE
+    odd = sum(1 for n in nodes if n.scheduled_start.hour < _WEATHER_ODD_HOUR_BEFORE or n.scheduled_start.hour >= _WEATHER_ODD_HOUR_FROM)
+    return min(100, _WEATHER_HEURISTIC_BASE + round(_WEATHER_HEURISTIC_ODD_HOURS_WEIGHT * odd / len(nodes)))
+
+
+def _blend_live_weather(heuristic_score: int, live_severity: int, cap: int = 20) -> int:
+    """Blend live weather severity into the time-of-day heuristic, capped at ±cap so a
+    single live reading can never swing the score more than `cap` points from the
+    heuristic baseline — this keeps output deterministic and bounded."""
+    delta = max(-cap, min(cap, live_severity - heuristic_score))
+    return heuristic_score + delta
 
 
 def get_risk_analysis(db: Session, trip_id: str) -> RiskAnalysisOut:
@@ -40,13 +70,42 @@ def get_risk_analysis(db: Session, trip_id: str) -> RiskAnalysisOut:
     vendor_risk = round(
         sum(s.result.risk_percent for s in exposure_snapshots) / len(exposure_snapshots)
     ) if exposure_snapshots else 10
-    weather_sensitive = [
-        s for s in snapshots
-        if node_by_id[s.node_id].scheduled_start.hour < 6 or node_by_id[s.node_id].scheduled_start.hour >= 20
-    ]
-    weather_risk = round(
-        sum(s.result.risk_percent for s in weather_sensitive) / len(weather_sensitive)
-    ) if weather_sensitive else 8
+    # Weather starts from the deterministic time-of-day heuristic. When enabled,
+    # live Open-Meteo conditions at each node's coordinates and scheduled hour
+    # nudge it by at most ±20 points (_blend_live_weather). A provider failure is
+    # deliberately non-fatal: the heuristic score is used unchanged.
+    weather_snapshots = []
+    weather_nodes = [n for n in nodes if n.lat is not None and n.lng is not None]
+    heuristic_weather = _time_of_day_weather_heuristic(weather_nodes)
+    if weather_nodes and _settings.weather_risk_enabled:
+        # Weather is an external dependency. Fetch node snapshots concurrently so
+        # one slow location does not multiply the Open-Meteo timeout by every node.
+        # The entire weather dimension has a bounded budget; if the budget expires,
+        # the rest of the risk response still returns with a neutral weather fallback.
+        executor = ThreadPoolExecutor(max_workers=min(6, len(weather_nodes)), thread_name_prefix="weather-risk")
+        futures = {
+            executor.submit(_weather_provider.get_snapshot, node.lat, node.lng, node.scheduled_start): node
+            for node in weather_nodes
+        }
+        try:
+            for future in as_completed(futures, timeout=_settings.weather_total_timeout_seconds):
+                try:
+                    weather_snapshots.append(future.result())
+                except Exception:
+                    continue
+        except FuturesTimeoutError:
+            pass
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+    # WeatherSnapshot itself exposes the scored risk; the future result above is
+    # converted below so this list stays deliberately tolerant of provider errors.
+    weather_risk_values = [snapshot.risk_percent for snapshot in weather_snapshots]
+    if weather_risk_values:
+        live_severity = round(sum(weather_risk_values) / len(weather_risk_values))
+        weather_risk = _blend_live_weather(heuristic_weather, live_severity)
+    else:
+        weather_risk = heuristic_weather
 
     score = RiskScoreOut(
         trip_resilience=resilience,
@@ -103,11 +162,10 @@ def get_risk_analysis(db: Session, trip_id: str) -> RiskAnalysisOut:
         if snap.result.risk_percent < 12:
             continue
         node = node_by_id[snap.node_id]
-        severity = "high" if snap.result.risk_percent >= 60 else "medium" if snap.result.risk_percent >= 30 else "low"
         alerts.append(
             AlertOut(
                 id=f"alert-{node.id}",
-                severity=severity,
+                severity=snap.result.risk_level,
                 title=snap.result.reason,
                 reason=", ".join(snap.result.contributing_factors),
                 impact=f"{node.dependency_count} downstream booking(s) could be affected."

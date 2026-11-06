@@ -16,7 +16,7 @@ def engine_kwargs_for(resolved_url: str, settings: Settings) -> dict:
     default pool classes - SingletonThreadPool for :memory:, NullPool for a
     file - don't accept pool_size/max_overflow at all, so passing them would
     raise). pool_pre_ping matters specifically for a hosted Postgres like
-    Supabase, whose connection pooler can silently drop idle connections;
+    Neon (or another managed Postgres provider), whose connection pooler can silently drop idle connections;
     without it, the first query on a stale connection fails outright instead
     of transparently reconnecting.
     """
@@ -39,9 +39,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency yielding an isolated SQLAlchemy database session per request.
+
+    Ensures rollback on unhandled exceptions and cleans up session handles
+    in all execution paths.
+    """
     db = SessionLocal()
     try:
         yield db
+
     except Exception:
         # A route/service raised mid-request (e.g. partway through mutating
         # nodes/edges in apply_recovery, before its own db.commit()). Roll

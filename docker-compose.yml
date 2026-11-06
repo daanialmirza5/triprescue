@@ -1,16 +1,16 @@
-name: triprescue
+name: safarsathi
 
-# Local-development PostgreSQL only. Production uses Supabase Postgres (see
-# docs/DEPLOYMENT.md) - this file has no production purpose and nothing here
+# Local-development PostgreSQL only. Production uses managed Postgres (Neon) -
+# see DEPLOYMENT.md - this file has no production purpose and nothing here
 # is deployed anywhere.
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: triprescue-postgres
+    container_name: safarsathi-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-triprescue}
-      POSTGRES_USER: ${POSTGRES_USER:-triprescue}
+      POSTGRES_DB: ${POSTGRES_DB:-safarsathi}
+      POSTGRES_USER: ${POSTGRES_USER:-safarsathi}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker - copy docker.env.example first}
     ports:
       # Default host port is 5433, not Postgres' usual 5432, so this doesn't
@@ -18,9 +18,9 @@ services:
       # Override POSTGRES_PORT in .env.docker if 5433 is also taken.
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - triprescue_postgres_data:/var/lib/postgresql/data
+      - safarsathi_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-triprescue} -d ${POSTGRES_DB:-triprescue}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-safarsathi} -d ${POSTGRES_DB:-safarsathi}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,18 +29,28 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: triprescue-backend
+    container_name: safarsathi-backend
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-triprescue}:${POSTGRES_PASSWORD:-triprescue}@postgres:5432/${POSTGRES_DB:-triprescue}
-      SECRET_KEY: ${SECRET_KEY:-triprescue_dev_secret_key_change_in_prod}
+      # ENVIRONMENT gates the AUTH_SECRET boot guard below (see config.py) -
+      # left at "development" by default so local Docker Postgres works out
+      # of the box; set ENVIRONMENT=production in .env.docker if you repurpose
+      # this file for a real deployment, and the app will refuse to start
+      # unless AUTH_SECRET has also been changed from its default.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-safarsathi}:${POSTGRES_PASSWORD:-safarsathi}@postgres:5432/${POSTGRES_DB:-safarsathi}
+      # Must be named AUTH_SECRET, not SECRET_KEY - that's the only name
+      # config.py/Settings reads (see app/services/auth_service.py). A
+      # differently-named variable here is silently ignored and the app
+      # falls back to the insecure default.
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-me}
       CORS_ORIGINS: http://localhost:5173,http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
-  triprescue_postgres_data:
-    name: triprescue_postgres_data
+  safarsathi_postgres_data:
+    name: safarsathi_postgres_data

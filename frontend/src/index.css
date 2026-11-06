@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { @apply border-line; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    background-image:
+      radial-gradient(ellipse 70% 40% at 85% -10%, rgba(18,181,229,.10), transparent),
+      radial-gradient(ellipse 60% 40% at 20% -10%, rgba(31,107,255,.08), transparent);
+    background-attachment: fixed;
+  }
+  ::selection { @apply bg-brand/15 text-ink; }
+  :focus-visible { outline: 2px solid #1F6BFF; outline-offset: 2px; border-radius: 8px; }
+  h1, h2, h3 { @apply font-display tracking-tight; }
+}
+
+@layer components {
+  /* Surfaces */
+  .card { @apply rounded-card border border-line bg-white shadow-card; }
+  .card-glass { @apply rounded-card border border-white/70 bg-white/80 shadow-card backdrop-blur-xl; }
+  .glass { @apply rounded-card border border-white/70 bg-white/85 shadow-card backdrop-blur-xl; }
+  .glass-strong { @apply border border-line bg-white shadow-lift; }
+  .ai-surface { @apply rounded-card border border-ai/20 bg-ai-light/60; }
+  .card-hover { @apply transition duration-200 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift; }
+  .section-title { @apply font-display text-[17px] font-bold text-ink; }
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint; }
+
+  /* Buttons */
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60; }
+  .btn-primary { @apply btn bg-brand text-white shadow-glow hover:bg-brand-dark; }
+  .btn-gradient { @apply btn bg-brand-gradient text-white shadow-glow hover:brightness-105; }
+  .btn-outline { @apply btn border border-brand/30 bg-white text-brand hover:border-brand/60 hover:bg-brand-light/60; }
+  .btn-ghost { @apply btn border border-line bg-white text-ink-soft hover:bg-canvas; }
+
+  /* Pills */
+  .pill { @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold; }
+
+  /* Form fields */
+  .field { @apply w-full rounded-xl border border-line-strong bg-white px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10; }
+
+  .skeleton { @apply rounded-lg bg-[linear-gradient(90deg,#EEF2F8_0%,#F7F9FC_50%,#EEF2F8_100%)] bg-[length:800px_100%] animate-shimmer; }
+}
+
+@layer utilities {
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(91,107,134,.3) transparent; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background-color: rgba(91,107,134,.28); border-radius: 9999px; }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .text-balance { text-wrap: balance; }
+  .mask-fade-left { -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 38%); mask-image: linear-gradient(to right, transparent 0%, #000 38%); }
+  .mask-fade-bottom { -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%); mask-image: linear-gradient(to bottom, #000 55%, transparent 100%); }
+  .mask-fade-top { -webkit-mask-image: linear-gradient(to top, #000 60%, transparent 100%); mask-image: linear-gradient(to top, #000 60%, transparent 100%); }
+}
+
+/* ---- World map (Leaflet) ---- */
+.ss-map { background: #0B1E3B; font-family: inherit; }
+.ss-map .leaflet-tile-pane { filter: saturate(0.85) brightness(0.72) contrast(1.08) hue-rotate(-8deg); }
+.ss-map .leaflet-control-attribution { background: rgba(11,27,58,.55); color: rgba(255,255,255,.65); font-size: 9px; border-radius: 6px 0 0 0; }
+.ss-map .leaflet-control-attribution a { color: rgba(255,255,255,.8); }
+.ss-map .leaflet-div-icon { background: transparent; border: 0; }
+.ss-map .leaflet-tooltip { border: 1px solid #E5EBF4; border-radius: 12px; box-shadow: 0 10px 30px -12px rgba(11,27,58,.35); padding: 8px 10px; color: #0B1B3A; font-family: inherit; }
+.ss-map .leaflet-tooltip-top:before { border-top-color: #fff; }
+.ss-route-flow { animation: dashFlow 1.2s linear infinite; }
+@keyframes dashFlow { to { stroke-dashoffset: -20; } }
+/* ---- Digital Twin weather radar ---- */
+.ss-radar { transform-box: fill-box; transform-origin: center; animation: ssRadar 2.8s ease-out infinite; }
+.ss-radar-2 { animation-delay: .9s; }
+.ss-radar-3 { animation-delay: 1.8s; }
+@keyframes ssRadar { 0% { transform: scale(.25); opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .ss-radar, .ss-route-flow { animation: none; }
+}
+/* ---- Landing hero ---- */
+.ss-float { animation: ssFloat 6s ease-in-out infinite; }
+.ss-glide { animation: ssGlide 9s ease-in-out infinite; }
+@keyframes ssFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ssGlide { 0% { left: 0%; } 50% { left: calc(100% - 24px); } 100% { left: 0%; } }
+@keyframes pulseRing { 0% { transform: scale(0.8); opacity: .8; } 100% { transform: scale(2.4); opacity: 0; } }
+
+/* ---- Dependency graph (reactflow) ---- */
+.react-flow { --bg-color: transparent; background: transparent; }
+.react-flow__attribution { display: none; }
+.react-flow__background { pointer-events: none; }
+.react-flow__controls { background: rgba(255,255,255,.96) !important; border: 1px solid #E5EBF4 !important; border-radius: 12px !important; box-shadow: 0 2px 10px rgba(11,27,58,.08) !important; overflow: hidden; }
+.react-flow__controls-button { background: transparent !important; border-bottom: 1px solid #EEF2F8 !important; fill: #5B6B86 !important; }
+.react-flow__controls-button:hover { background: rgba(31,107,255,.06) !important; fill: #1F6BFF !important; }
+.react-flow__minimap { background: rgba(255,255,255,.96) !important; border: 1px solid #E5EBF4 !important; border-radius: 12px !important; }
+.react-flow__edge-path { transition: stroke .5s ease, stroke-width .3s ease; }
+.react-flow__handle { opacity: 0; width: 1px; height: 1px; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

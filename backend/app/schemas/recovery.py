@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app.schemas.base import CamelModel
 
 
@@ -31,6 +33,22 @@ class RecoveryOptionOut(CamelModel):
     score: int
     changes: list[RecoveryChangeOut]
     score_breakdown: ScoreBreakdownOut
+    feasible: bool = True
+    provider_reason: str | None = None
+    data_source: Literal["live", "simulated"] = "simulated"
+    # Why this option sits where it does in the ranking, relative to the others
+    # and the traveler's preferences. Populated on generation; None elsewhere.
+    narrative: str | None = None
+
+
+class RecoveryNarrativeOut(CamelModel):
+    """Executive summary + narrative explaining the recovery ranking."""
+
+    executive_summary: str | None = None
+    narrative: str | None = None
+    top_option_id: str | None = None
+    option_notes: dict[str, str] = {}
+    source: Literal["nugen", "llm", "deterministic"] = "deterministic"
 
 
 class ApplyRecoveryRequest(CamelModel):

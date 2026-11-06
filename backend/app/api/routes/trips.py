@@ -1,16 +1,46 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_traveler_id
+from app.config import get_settings
+from app.core.rate_limiting import limiter
 from app.database.session import get_db
+from app.providers.geocoding_provider import NominatimGeocodingProvider
+from app.schemas.base import CamelModel
 from app.schemas.activity import ActivityEventOut
 from app.schemas.common import TravelerPreferences
 from app.schemas.notification import NotificationOut
 from app.schemas.risk import RiskAnalysisOut
 from app.schemas.trip import BookingOut, NodeCreateRequest, TripCreateRequest, TripExportOut, TripOut, TripSummaryOut
-from app.services import risk_service, trip_service
+from app.services.converters import format_time
+from app.services import risk_prediction_service, risk_service, trip_service
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
+# Geocoding isn't trip-scoped, so it lives on its own router to get the
+# /api/geocode path rather than /api/trips/geocode.
+geocode_router = APIRouter(prefix="/api", tags=["geocoding"])
+_geocoding_provider = NominatimGeocodingProvider(
+    timeout_seconds=get_settings().geocoding_request_timeout_seconds, contact=get_settings().geocoding_contact
+)
+
+
+class GeocodeRequest(CamelModel):
+    query: str = Field(min_length=1, max_length=300)
+
+
+class GeocodeResponse(CamelModel):
+    lat: float
+    lng: float
+
+
+@geocode_router.post("/geocode", response_model=GeocodeResponse)
+@limiter.limit(lambda: get_settings().disruption_rate_limit)
+def geocode(payload: GeocodeRequest, request: Request, traveler_id: str = Depends(get_current_traveler_id)):
+    coords = _geocoding_provider.geocode(payload.query)
+    if coords is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    return GeocodeResponse(lat=coords[0], lng=coords[1])
 
 
 @router.get("", response_model=list[TripSummaryOut])
@@ -97,6 +127,32 @@ def get_trip_risks(trip_id: str, db: Session = Depends(get_db), traveler_id: str
     try:
         trip_service.get_trip(db, trip_id, traveler_id)
         return risk_service.get_risk_analysis(db, trip_id)
+    except trip_service.TripNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+
+
+@router.post("/{trip_id}/risk/poll-once", response_model=list[NotificationOut])
+def poll_risk_once(
+    trip_id: str,
+    db: Session = Depends(get_db),
+    traveler_id: str = Depends(get_current_traveler_id),
+):
+    try:
+        trip = trip_service.get_trip(db, trip_id, traveler_id)
+        result = risk_prediction_service.predict_trip(db, trip)
+        notifications = result if isinstance(result, list) else ([result] if result is not None else [])
+        return [
+            NotificationOut(
+                id=n.id,
+                severity=n.severity.value,
+                category=n.category.value,
+                title=n.title,
+                message=n.message,
+                timestamp=format_time(n.timestamp),
+                read=n.read,
+            )
+            for n in notifications
+        ]
     except trip_service.TripNotFoundError:
         raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
 

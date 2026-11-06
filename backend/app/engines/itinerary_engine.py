@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from app.engines.financial_engine import FinancialEngine, FinancialSummary
 from app.engines.risk_engine import RiskEngine, RiskResult
 from app.engines.types import EngineEdge, EngineNode, NodeImpact
+from app.core.pipeline_trace import traced
 
 
 @dataclass
@@ -58,6 +59,7 @@ class ItineraryEngine:
                     location=node.location,
                     moment=node.scheduled_start,
                     dependency_count=dependency_count.get(node.id, 0),
+                    road=node.category == "transfer",
                 )
                 snapshots.append(
                     NodeRiskSnapshot(node.id, result, True, available, required, recommended)
@@ -74,6 +76,7 @@ class ItineraryEngine:
                 snapshots.append(NodeRiskSnapshot(node.id, result))
         return snapshots
 
+    @traced("impact_engine", "Journey health score", detail=lambda r, a, k: {"healthScore": r})
     def compute_health_score(
         self,
         nodes: list[EngineNode],

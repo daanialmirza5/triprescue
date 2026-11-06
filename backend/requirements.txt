@@ -11,3 +11,4 @@ slowapi==0.1.9
 psycopg[binary]==3.2.10
 pytest==8.3.3
 pytest-asyncio==0.24.0
+sentry-sdk[fastapi]==2.19.2

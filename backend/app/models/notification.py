@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.core.datetime_utils import utcnow_naive
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -18,7 +19,7 @@ class Notification(Base):
     category: Mapped[NotificationCategory] = mapped_column(Enum(NotificationCategory), nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     message: Mapped[str] = mapped_column(String, nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
 
     trip: Mapped["Trip"] = relationship(back_populates="notifications")

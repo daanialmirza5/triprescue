@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.core.datetime_utils import utcnow_naive
 
 from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,11 +31,13 @@ class RecoveryPlan(Base):
     score: Mapped[int] = mapped_column(Integer, default=0)
     score_breakdown: Mapped[dict] = mapped_column(JSON, default=dict)
     explanation: Mapped[str] = mapped_column(String, default="")
+    provider_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
     feasible: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_source: Mapped[str] = mapped_column(String, default="simulated")
     applied: Mapped[bool] = mapped_column(Boolean, default=False)
     applied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
     trip: Mapped["Trip"] = relationship(back_populates="recovery_plans")
     disruption: Mapped["Disruption"] = relationship(back_populates="recovery_plans")

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-TripRescue actively maintains security patches and updates for the following versions:
+SafarSathi actively maintains security patches and updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -13,13 +13,14 @@ TripRescue actively maintains security patches and updates for the following ver
 
 ## Security Architecture & Controls
 
-TripRescue is engineered with security and tenant isolation by design:
+SafarSathi is engineered with security and tenant isolation by design:
 
-1. **Authentication & JWT Token Verification**:
-   - Authentication utilizes stateless JSON Web Tokens (JWT) signed with HMAC-SHA256 (`HS256`).
-   - Passwords are encrypted using salted `bcrypt` hashes.
-   - Tokens carry an expiration timestamp and traveler identity (`sub` claim).
+1. **Authentication & Session Token Verification**:
+   - Sessions use a small, stdlib-only signed token (`traveler_id:issued_at:signature`, base64-encoded), HMAC-signed with SHA-256 using `AUTH_SECRET`, and verified with `hmac.compare_digest` (constant-time comparison) - see `app/services/auth_service.py`. This is a custom scheme, not a JWT library, to keep the dependency footprint minimal.
+   - Passwords are hashed with salted PBKDF2-HMAC-SHA256 (200,000 iterations, stdlib `hashlib`), not bcrypt.
+   - Tokens embed an issued-at timestamp; requests older than `AUTH_TOKEN_TTL_DAYS` are rejected. There is no server-side revocation list, so expiry is the only way a token stops working before its holder logs in again.
    - Tampered, expired, or malformed tokens are rejected with `HTTP 401 Unauthorized`.
+   - The backend refuses to boot with the default `AUTH_SECRET` ("dev-secret-change-me") whenever `ENVIRONMENT` is not `development` - enforced at startup, not just documented (see `app/config.py`).
 
 2. **Data & Multi-Tenant Isolation**:
    - Every itinerary node, booking, disruption, preference, and notification is strictly scoped to the authenticated `traveler_id`.
@@ -40,10 +41,10 @@ TripRescue is engineered with security and tenant isolation by design:
 
 ## Reporting a Vulnerability
 
-If you discover a potential security vulnerability in TripRescue, please report it responsibly:
+If you discover a potential security vulnerability in SafarSathi, please report it responsibly:
 
-- **Email**: `daanialmirza@gmail.com`
-- **Subject**: `[TripRescue Security Disclosure] <Short Description>`
+- **Email**: `your-team-email@example.com` (⚠️ TODO: replace with your real contact email before publishing)
+- **Subject**: `[SafarSathi Security Disclosure] <Short Description>`
 - Please include steps to reproduce, expected vs actual behavior, and potential impact.
 
 We appreciate your responsible disclosure and will respond promptly to investigate and patch confirmed issues.

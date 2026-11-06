@@ -1,4 +1,4 @@
-"""TripRescue Itinerary Graph Scalability & Recovery Benchmark.
+"""SafarSathi Itinerary Graph Scalability & Recovery Benchmark.
 
 Empirically benchmarks GraphEngine, topological sorting, cycle detection,
 and disruption cascade propagation across synthetic itineraries from N=10 to N=500 nodes.

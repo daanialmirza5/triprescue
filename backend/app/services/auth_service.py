@@ -20,6 +20,26 @@ from app.config import get_settings
 _ITERATIONS = 200_000
 
 
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128  # bounds the PBKDF2 work a single request can cause
+
+# (requirement shown to the user, test) - mirrored in frontend/src/lib/password.ts
+_PASSWORD_RULES = (
+    (f"at least {PASSWORD_MIN_LENGTH} characters", lambda p: len(p) >= PASSWORD_MIN_LENGTH),
+    ("an uppercase letter", lambda p: any(c.isupper() for c in p)),
+    ("a lowercase letter", lambda p: any(c.islower() for c in p)),
+    ("a number", lambda p: any(c.isdigit() for c in p)),
+    ("a symbol (e.g. ! @ # $)", lambda p: any(not c.isalnum() and not c.isspace() for c in p)),
+)
+
+
+def password_problems(password: str) -> list[str]:
+    """Requirements a new password doesn't meet yet; empty means it's strong enough."""
+    if len(password) > PASSWORD_MAX_LENGTH:
+        return [f"at most {PASSWORD_MAX_LENGTH} characters"]
+    return [label for label, ok in _PASSWORD_RULES if not ok(password)]
+
+
 def hash_password(password: str) -> str:
     salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, _ITERATIONS)

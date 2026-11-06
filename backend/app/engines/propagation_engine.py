@@ -6,7 +6,7 @@ specific incoming edges, so the algorithm generalizes to any itinerary graph
 (branches, multiple dependencies, etc.), not just the Ladakh trip it was designed
 against.
 
-Algorithm (see docs/ALGORITHM_SPEC.md for the full write-up):
+Algorithm (see README.md for the full write-up):
 
 1. Build a GraphEngine from the node/edge set and compute a topological order.
    (A cyclic dependency graph is a data error, not a disruption scenario, and is
@@ -43,6 +43,7 @@ from datetime import datetime, timedelta
 
 from app.engines.graph_engine import GraphEngine
 from app.engines.types import EngineEdge, EngineNode, NodeImpact, PropagationResult
+from app.core.pipeline_trace import traced, emit_propagation
 
 UNCERTAINTY_WINDOW_HOURS = 24
 
@@ -59,6 +60,13 @@ _DISRUPTIVE_CANCEL_TYPES = {
     "hotel-cancellation": "Hotel cancelled the reservation.",
     "activity-cancellation": "Activity cancelled by the operator.",
     "airport-closure": "Airport closed; all departures from here are suspended.",
+    # Minimal weather scenario: severe weather forces an outright cancellation
+    # of the affected node rather than a partial delay. This reuses the same
+    # cancel-type handling as the other cancellation disruptions - the node
+    # is detached (actual_start/end cleared) so recovery can rebook it - but
+    # keeps a weather-specific reason so it reads as its own scenario rather
+    # than a generic break.
+    "weather-disruption": "Severe weather has forced cancellation of this booking.",
 }
 
 _DISRUPTIVE_BREAK_TYPES = {
@@ -86,6 +94,9 @@ def apply_disruption_override(
     delay_minutes: int | None,
 ) -> NodeImpact:
     base = _healthy_impact(node)
+
+    if disruption_type in ("none", "healthy", "recovered", "", None):
+        return base
 
     if disruption_type == "flight-delay":
         delay = delay_minutes or 0
@@ -251,7 +262,19 @@ def _worst(outcomes: list[NodeImpact]) -> NodeImpact:
     return max(outcomes, key=lambda o: _STATUS_PRIORITY.get(o.status, 0))
 
 
+def _combine(direct: NodeImpact, cascaded: NodeImpact) -> NodeImpact:
+    """A node hit directly AND by an upstream cascade: the worse status wins;
+    two delays compound into the later finishing time."""
+    if direct.status == cascaded.status == "delayed" and direct.actual_end and cascaded.actual_end:
+        later = max((direct, cascaded), key=lambda i: i.actual_end)
+        return replace(later, delay_minutes=max(direct.delay_minutes, cascaded.delay_minutes))
+    if _STATUS_PRIORITY.get(direct.status, 0) >= _STATUS_PRIORITY.get(cascaded.status, 0):
+        return direct
+    return cascaded
+
+
 class PropagationEngine:
+    @traced("impact_engine", "Impact engine: propagate the disruption through the journey", detail=lambda r, a, k: {"nodesEvaluated": len(r.sequence), "notHealthy": sum(1 for i in r.impacts.values() if i.status != "healthy")}, after=emit_propagation)
     def propagate(
         self,
         nodes: list[EngineNode],
@@ -260,7 +283,13 @@ class PropagationEngine:
         disruption_type: str,
         delay_minutes: int | None = None,
         detected_at: datetime | None = None,
+        extra_overrides: dict[str, tuple[str, int | None]] | None = None,
     ) -> PropagationResult:
+        """`extra_overrides` ({node_id: (disruption_type, delay_minutes)}) applies
+        additional simultaneous direct hits - e.g. one storm delaying a flight AND
+        blocking a road transfer. Each such node takes the worse of its own hit
+        and whatever cascades into it from upstream. Omitted, behaviour is the
+        classic single-disruption propagation."""
         node_by_id = {n.id: n for n in nodes}
         if disrupted_node_id not in node_by_id:
             raise ValueError(f"Unknown node id: {disrupted_node_id}")
@@ -295,6 +324,9 @@ class PropagationEngine:
                         if edge.source in impacts
                     ]
                     impact = _worst(outcomes) if outcomes else _healthy_impact(node)
+                if extra_overrides and node_id in extra_overrides:
+                    hit_type, hit_delay = extra_overrides[node_id]
+                    impact = _combine(apply_disruption_override(node, hit_type, hit_delay), impact)
             impacts[node_id] = impact
             sequence.append(node_id)
 

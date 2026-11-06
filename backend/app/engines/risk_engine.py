@@ -42,6 +42,16 @@ def _time_of_day_factor(moment: datetime) -> float:
     return 1.0
 
 
+PEAK_TRAFFIC_WINDOWS = ((8, 11), (17, 21))  # [start, end) local hours
+
+
+def _road_traffic_factor(moment: datetime) -> float:
+    """Modelled road congestion for ground transfers: peak commute hours make
+    an on-time road leg less certain. There is no live traffic feed; this is a
+    deterministic time-of-day model and is labelled as such."""
+    return 1.2 if any(start <= moment.hour < end for start, end in PEAK_TRAFFIC_WINDOWS) else 1.0
+
+
 @dataclass
 class RiskResult:
     risk_percent: int
@@ -74,38 +84,79 @@ class RiskEngine:
         location: str,
         moment: datetime,
         dependency_count: int,
+        road: bool = False,
     ) -> RiskResult:
         required_minutes = max(required_minutes, 1)
-        ratio = available_minutes / required_minutes
-        base = 95 - max(0.0, (ratio - 1)) / 2 * 90
-        base = max(5.0, min(95.0, base))
+        recommended_minutes = max(recommended_minutes, required_minutes)
+
+        # Single source of truth: the buffer is placed in exactly one band, and
+        # the score range, level, reason and recommendation are all derived from
+        # that band - so the text can never claim something the score contradicts.
+        if available_minutes < required_minutes:
+            band = "insufficient"
+            base = 95.0
+        elif available_minutes < recommended_minutes:
+            band = "tight"
+            # 75 at the required minimum, easing towards 45 just below the recommendation.
+            base = 75 - 30 * (available_minutes - required_minutes) / (recommended_minutes - required_minutes)
+        else:
+            band = "meets"
+            # 25 at the recommendation, easing to 5 once the surplus equals the recommendation again.
+            surplus = available_minutes - recommended_minutes
+            base = 25 - 20 * min(1.0, surplus / recommended_minutes)
 
         complexity = AIRPORT_COMPLEXITY.get(location, 0.55)
         base *= 0.75 + complexity * 0.35
         base *= _time_of_day_factor(moment)
+        traffic = _road_traffic_factor(moment) if road else 1.0
+        base *= traffic
         base += min(dependency_count, 6) * 1.5
 
-        percent = _clamp(base)
+        # Location/timing/dependency factors may move the score within a band,
+        # never across it: a buffer below the minimum is always high risk, a
+        # tight one is never low, and one meeting the recommendation never high.
+        band_range = {"insufficient": (60, 100), "tight": (30, 100), "meets": (0, 59)}[band]
+        percent = _clamp(base, *band_range)
+
         factors = [
-            f"available buffer is {available_minutes} minutes against a {required_minutes}-minute minimum",
+            f"available buffer is {available_minutes} minutes against a {required_minutes}-minute required "
+            f"minimum and a {recommended_minutes}-minute recommended buffer",
             f"airport/location complexity factor for {location}",
             f"{dependency_count} downstream booking(s) depend on this connection",
         ]
         if _time_of_day_factor(moment) > 1.0:
             factors.append("early-morning/late-night timing increases weather/ops variability")
+        if traffic > 1.0:
+            factors.append("road leg in peak traffic hours (08:00-11:00 / 17:00-21:00, modelled - no live traffic feed)")
 
-        reason = (
-            f"Connection buffer is only {available_minutes} minutes above the minimum "
-            f"required buffer of {required_minutes} minutes."
-            if available_minutes < recommended_minutes
-            else f"Connection buffer of {available_minutes} minutes comfortably exceeds the "
-            f"{required_minutes}-minute minimum."
-        )
-        recommendation = (
-            f"Consider a plan that increases this buffer to {recommended_minutes}+ minutes."
-            if percent >= 30
-            else "No action needed - buffer is healthy."
-        )
+        if band == "insufficient":
+            reason = (
+                f"Connection buffer of {available_minutes} minutes is below the required "
+                f"{required_minutes}-minute minimum."
+            )
+            recommendation = (
+                f"This connection is not viable as scheduled - rebook or add at least "
+                f"{required_minutes - available_minutes} minutes."
+            )
+        elif band == "tight":
+            verb = "meets" if available_minutes == required_minutes else "exceeds"
+            reason = (
+                f"Connection buffer of {available_minutes} minutes {verb} the required "
+                f"{required_minutes}-minute minimum but falls short of the recommended "
+                f"{recommended_minutes}-minute buffer."
+            )
+            recommendation = f"Consider a plan that increases this buffer to {recommended_minutes}+ minutes."
+        else:
+            reason = (
+                f"Connection buffer of {available_minutes} minutes meets the recommended "
+                f"{recommended_minutes}-minute buffer (required minimum: {required_minutes} minutes)."
+            )
+            recommendation = (
+                "Buffer meets the recommendation; remaining risk comes from airport, timing and "
+                "downstream dependencies - monitor on the day."
+                if percent >= 30
+                else "No action needed - buffer is healthy."
+            )
         return RiskResult(percent, _level_for(percent), reason, factors, recommendation)
 
     def exposure_risk(

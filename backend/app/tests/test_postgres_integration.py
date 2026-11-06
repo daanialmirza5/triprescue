@@ -111,13 +111,13 @@ def _auth_header(token: str) -> dict:
 def test_register_login_and_token_roundtrip_against_real_postgres(client):
     resp = client.post(
         "/api/auth/register",
-        json={"name": "PG Traveler", "email": "pg-traveler@example.com", "password": "hunter2"},
+        json={"name": "PG Traveler", "email": "pg-traveler@example.com", "password": "Hunter2!pw"},
     )
     assert resp.status_code == 200, resp.text
     registered = resp.json()
     assert registered["email"] == "pg-traveler@example.com"
 
-    resp = client.post("/api/auth/login", json={"email": "pg-traveler@example.com", "password": "hunter2"})
+    resp = client.post("/api/auth/login", json={"email": "pg-traveler@example.com", "password": "Hunter2!pw"})
     assert resp.status_code == 200
     assert resp.json()["travelerId"] == registered["travelerId"]
 
@@ -129,7 +129,7 @@ def test_register_login_and_token_roundtrip_against_real_postgres(client):
 def test_trip_creation_and_retrieval_persist_against_real_postgres(client):
     registered = client.post(
         "/api/auth/register",
-        json={"name": "PG Trip Owner", "email": "pg-trip-owner@example.com", "password": "hunter2"},
+        json={"name": "PG Trip Owner", "email": "pg-trip-owner@example.com", "password": "Hunter2!pw"},
     ).json()
     headers = _auth_header(registered["token"])
 
@@ -155,11 +155,11 @@ def test_trip_creation_and_retrieval_persist_against_real_postgres(client):
 def test_cross_user_trip_isolation_against_real_postgres(client):
     owner = client.post(
         "/api/auth/register",
-        json={"name": "PG Owner", "email": "pg-owner@example.com", "password": "hunter2"},
+        json={"name": "PG Owner", "email": "pg-owner@example.com", "password": "Hunter2!pw"},
     ).json()
     intruder = client.post(
         "/api/auth/register",
-        json={"name": "PG Intruder", "email": "pg-intruder@example.com", "password": "hunter2"},
+        json={"name": "PG Intruder", "email": "pg-intruder@example.com", "password": "Hunter2!pw"},
     ).json()
 
     trip_id = client.post(
@@ -188,7 +188,7 @@ def test_transaction_rollback_on_failure_leaves_no_partial_state_on_real_postgre
     test_node_and_booking_are_persisted_atomically)."""
     registered = client.post(
         "/api/auth/register",
-        json={"name": "PG Atomicity", "email": "pg-atomicity@example.com", "password": "hunter2"},
+        json={"name": "PG Atomicity", "email": "pg-atomicity@example.com", "password": "Hunter2!pw"},
     ).json()
     headers = _auth_header(registered["token"])
 

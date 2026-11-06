@@ -1,12 +1,15 @@
 from datetime import datetime
 
+from pydantic import Field
+
 from app.schemas.base import CamelModel
 
 
 class DisruptionRequest(CamelModel):
     type: str
     primary_node_id: str | None = None
-    delay_minutes: int | None = None
+    # A delay is never negative, and anything past two days is a cancellation.
+    delay_minutes: int | None = Field(default=None, ge=0, le=48 * 60)
 
 
 class CascadeStepOut(CamelModel):
@@ -29,6 +32,7 @@ class DisruptionOut(CamelModel):
     refund_exposure: float
     cascade_steps: list[CascadeStepOut]
     detected_at: str
+    narrative: str | None = None
 
 
 class ImpactEntryOut(CamelModel):

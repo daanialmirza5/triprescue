@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.core.datetime_utils import utcnow_naive
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,6 +18,6 @@ class ActivityEvent(Base):
     type: Mapped[ActivityType] = mapped_column(Enum(ActivityType), nullable=False)
     message: Mapped[str] = mapped_column(String, nullable=False)
     detail: Mapped[str | None] = mapped_column(String, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, index=True)
 
     trip: Mapped["Trip"] = relationship(back_populates="activity_events")

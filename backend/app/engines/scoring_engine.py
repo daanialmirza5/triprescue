@@ -10,6 +10,7 @@ in the frontend.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from app.core.pipeline_trace import traced
 
 
 @dataclass
@@ -66,6 +67,7 @@ def _normalize(values: list[float], higher_is_better: bool) -> list[int]:
 
 
 class ScoringEngine:
+    @traced("recovery", "Scoring engine: rank by traveller preferences", detail=lambda r, a, k: {"scored": len(r)})
     def score_candidates(
         self, candidates: list[CandidateMetrics], weights: ScoringWeights
     ) -> list[ScoredCandidate]:

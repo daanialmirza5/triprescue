@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.core.datetime_utils import utcnow_naive
 
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,7 +23,7 @@ class RiskSnapshot(Base):
     reason: Mapped[str] = mapped_column(String, default="")
     contributing_factors: Mapped[list] = mapped_column(JSON, default=list)
     recommendation: Mapped[str] = mapped_column(String, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
     trip: Mapped["Trip"] = relationship(back_populates="risk_snapshots")
     node: Mapped["ItineraryNode | None"] = relationship()

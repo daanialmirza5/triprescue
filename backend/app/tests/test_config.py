@@ -13,8 +13,8 @@ def _settings(**overrides) -> Settings:
 
 class TestResolvedDatabaseUrl:
     def test_sqlite_url_passes_through_unchanged(self):
-        settings = _settings(database_url="sqlite:///./triprescue.db")
-        assert settings.resolved_database_url == "sqlite:///./triprescue.db"
+        settings = _settings(database_url="sqlite:///./safarsathi.db")
+        assert settings.resolved_database_url == "sqlite:///./safarsathi.db"
 
     def test_legacy_postgres_scheme_is_rewritten_to_psycopg3(self):
         settings = _settings(database_url="postgres://user:pw@host:5432/dbname")
@@ -75,3 +75,17 @@ class TestEngineKwargsFor:
         assert kwargs["pool_size"] == 5
         assert kwargs["max_overflow"] == 10
         assert kwargs["pool_recycle"] == 300
+
+
+class TestRiskPredictionSettings:
+    def test_risk_prediction_settings_defaults(self):
+        # Off by default: the scheduler calls live weather for every trip, so it is opt-in.
+        settings = _settings()
+        # Off by default: the scheduler makes weather calls, so deployments opt in.
+        assert settings.risk_prediction_enabled is False
+        assert settings.risk_prediction_interval_minutes == 15
+
+    def test_risk_prediction_settings_overrides(self):
+        settings = _settings(risk_prediction_enabled=True, risk_prediction_interval_minutes=30)
+        assert settings.risk_prediction_enabled is True
+        assert settings.risk_prediction_interval_minutes == 30

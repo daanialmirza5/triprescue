@@ -1,0 +1,73 @@
+# Render Blueprint for the SafarSathi backend.
+#
+# This deploys ONLY the backend (FastAPI). The database is Neon (external,
+# not managed by this blueprint - see DEPLOYMENT.md) and the frontend is
+# deployed separately to Vercel (also in DEPLOYMENT.md).
+#
+# How to use:
+#   1. Push this repo to GitHub.
+#   2. In the Render dashboard: New -> Blueprint -> pick this repo.
+#   3. Render reads this file and creates the service below automatically.
+#   4. Fill in the environment variables marked "sync: false" in the Render
+#      dashboard after the first deploy (Render deliberately does not let a
+#      blueprint commit secrets to the repo).
+#
+# Full step-by-step walkthrough: DEPLOYMENT.md in the repo root.
+
+services:
+  - type: web
+    name: safarsathi-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: singapore   # pick the region closest to your users/judges
+    healthCheckPath: /api/health
+    envVars:
+      # --- Required: fill these in the Render dashboard, not here ---
+      - key: DATABASE_URL
+        sync: false   # paste your Neon connection string here
+      - key: AUTH_SECRET
+        sync: false   # generate with: python -c "import secrets; print(secrets.token_hex(32))"
+      - key: CORS_ORIGINS
+        sync: false   # your deployed Vercel URL(s), comma-separated, e.g. https://safarsathi.vercel.app
+
+      # --- Required, safe to set here (non-secret) ---
+      - key: ENVIRONMENT
+        value: production
+      - key: REQUIRE_AUTHENTICATION
+        value: "true"
+      - key: SEED_DEMO_DATA
+        value: "false"
+
+      # --- Optional integrations: leave blank to run on built-in fallbacks ---
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: NUGEN_API_KEY
+        sync: false
+      - key: AMADEUS_CLIENT_ID
+        sync: false
+      - key: AMADEUS_CLIENT_SECRET
+        sync: false
+      - key: AVIATIONSTACK_API_KEY
+        sync: false
+      - key: RAILRADAR_API_KEY
+        sync: false
+      - key: TICKETMASTER_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+      # --- Optional feature flags: safe defaults, override if you want ---
+      - key: WEATHER_RISK_ENABLED
+        value: "true"
+      - key: SOCIAL_SIGNALS_LIVE_ENABLED
+        value: "true"
+      - key: RISK_PREDICTION_ENABLED
+        value: "false"
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: LOG_FORMAT
+        value: json
+      - key: LOG_LEVEL
+        value: INFO

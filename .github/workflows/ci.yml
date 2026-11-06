@@ -34,8 +34,9 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: Run Backend Pytest Suite
+        working-directory: backend
         run: |
-          pytest -v
+          pytest -q
 
   frontend-test-and-build:
     name: Frontend Lint, Typecheck, Test & Build
@@ -49,16 +50,20 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Typecheck
+        working-directory: frontend
         run: npm run typecheck
 
       - name: Run Vitest Unit Tests
-        run: npm run test -- --run
+        working-directory: frontend
+        run: npm run test
 
       - name: Build Vite bundle
+        working-directory: frontend
         run: npm run build

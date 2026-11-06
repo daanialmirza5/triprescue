@@ -3,7 +3,7 @@ from datetime import datetime
 from app.engines.propagation_engine import PropagationEngine
 from app.engines.recovery_engine import RecoveryEngine
 from app.engines.types import EngineEdge, EngineNode
-from app.providers.base import ActivityProvider, CancellationPolicy, ProviderAlternative
+from app.providers.base import ActivityProvider, CancellationPolicy, HotelProvider, ProviderAlternative, TransferProvider
 from app.providers.mock_activity_provider import MockActivityProvider
 from app.providers.mock_flight_provider import MockFlightProvider
 from app.providers.mock_hotel_provider import MockHotelProvider
@@ -246,8 +246,9 @@ def test_activity_conflict_resolution_converges_on_chained_conflicts():
         transfer_provider=MockTransferProvider(),
     )
     working_nodes = {n.id: n for n in nodes}
+    provider_issues: list[str] = []
     actions, final_nodes, final_impacts = engine._resolve_activity_conflicts(
-        working_nodes, edges, impacts, "flight-x", "flight-delay", 90, detected_at
+        working_nodes, edges, impacts, "flight-x", "flight-delay", 90, detected_at, provider_issues
     )
 
     resolved_ids = {a.node_id for a in actions}
@@ -258,7 +259,7 @@ def test_activity_conflict_resolution_converges_on_chained_conflicts():
     assert final_impacts["activity-b"].status != "at-risk"
 
 
-def test_no_recovery_needed_when_nothing_is_broken():
+def test_keep_current_plan_when_nothing_is_broken():
     nodes = ladakh_nodes()
     edges = ladakh_edges()
     healthy_impacts = PropagationEngine().propagate(
@@ -272,4 +273,126 @@ def test_no_recovery_needed_when_nothing_is_broken():
     plans = _engine().generate_plans(
         nodes, edges, healthy_impacts, "bom-del", "flight-delay", 0, datetime(2025, 9, 12, 6, 30), DEFAULT_PREFERENCES
     )
-    assert plans == []
+    # Nothing to fix: one explicit, feasible "keep your plan" option that changes
+    # no booking, rather than an empty list the UI can't explain.
+    assert len(plans) == 1
+    keep = plans[0]
+    assert keep.key == "keep-current" and keep.feasible and keep.actions == []
+    assert keep.bookings_preserved == keep.total_bookings
+
+
+class _HotelRebookProvider(HotelProvider):
+    def search(self, location: str, check_in: str) -> list[ProviderAlternative]:
+        return []
+
+    def get_alternatives(self, location: str, check_in: datetime) -> list[ProviderAlternative]:
+        return [
+            ProviderAlternative(
+                id="hotel-late",
+                provider="Hotel Rebooker",
+                confirmation_hint="HOTEL-LATE",
+                origin=location,
+                destination=location,
+                departure=datetime(2025, 9, 13, 12, 0),
+                arrival=datetime(2025, 9, 13, 14, 0),
+                cost=12000,
+                tier="standard",
+                refundable=True,
+                refund_percentage=0.5,
+                cancellation_deadline_hours=24,
+            )
+        ]
+
+    def get_booking(self, confirmation: str) -> ProviderAlternative | None:
+        return None
+
+    def get_cancellation_policy(self, confirmation: str) -> CancellationPolicy:
+        return CancellationPolicy(True, 0.5, 24, "Test policy")
+
+
+class _HotelConflictActivityProvider(ActivityProvider):
+    def search(self, location: str, date: str) -> list[ProviderAlternative]:
+        return []
+
+    def get_alternatives(self, location: str, after: datetime) -> list[ProviderAlternative]:
+        return [
+            ProviderAlternative(
+                id="activity-late",
+                provider="Activity Rebooker",
+                confirmation_hint="ACT-LATE",
+                origin="",
+                destination=location,
+                departure=datetime(2025, 9, 13, 16, 0),
+                arrival=datetime(2025, 9, 13, 18, 0),
+                cost=5000,
+                tier="standard",
+                refundable=False,
+                refund_percentage=0,
+                cancellation_deadline_hours=24,
+            )
+        ]
+
+    def get_booking(self, confirmation: str) -> ProviderAlternative | None:
+        return None
+
+    def get_cancellation_policy(self, confirmation: str) -> CancellationPolicy:
+        return CancellationPolicy(False, 0, 24, "Test policy")
+
+
+class _TransferRebookProvider(TransferProvider):
+    def search(self, location: str, date: str) -> list[ProviderAlternative]:
+        return []
+
+    def get_alternatives(self, location: str, after: datetime) -> list[ProviderAlternative]:
+        return [
+            ProviderAlternative(
+                id="transfer-new",
+                provider="Transfer Co",
+                confirmation_hint="TR-NEW",
+                origin=location,
+                destination="Hotel",
+                departure=datetime(2025, 9, 13, 9, 30),
+                arrival=datetime(2025, 9, 13, 10, 30),
+                cost=1000,
+                tier="standard",
+                refundable=False,
+                refund_percentage=0,
+                cancellation_deadline_hours=0,
+            )
+        ]
+
+    def get_booking(self, confirmation: str) -> ProviderAlternative | None:
+        return None
+
+    def get_cancellation_policy(self, confirmation: str) -> CancellationPolicy:
+        return CancellationPolicy(False, 0, 0, "Test policy")
+
+
+def test_single_rebook_resolves_activity_conflicts_for_hotel_triggered_disruption():
+    nodes = [
+        EngineNode("hotel", "hotel", "Hotel", "Leh", datetime(2025, 9, 13, 10), datetime(2025, 9, 13, 12), cost=10000, refundable=True, refund_percentage=0.5),
+        EngineNode("activity", "activity", "Activity", "Leh", datetime(2025, 9, 13, 13), datetime(2025, 9, 13, 15)),
+    ]
+    edges = [
+        EngineEdge("hotel-activity", "hotel", "activity", "soft", min_buffer_minutes=30),
+    ]
+    propagation = PropagationEngine()
+    impacts = propagation.propagate(
+        nodes, edges, "hotel", "hotel-unavailable", 0, datetime(2025, 9, 13, 7, 0)
+    ).impacts
+    assert impacts["hotel"].status in ("broken", "at-risk")
+
+    engine = RecoveryEngine(
+        flight_provider=MockFlightProvider(),
+        hotel_provider=_HotelRebookProvider(),
+        activity_provider=_HotelConflictActivityProvider(),
+        transfer_provider=MockTransferProvider(),
+    )
+    plans = engine.generate_plans(
+        nodes, edges, impacts, "hotel", "hotel-unavailable", 0, datetime(2025, 9, 13, 7, 0), DEFAULT_PREFERENCES
+    )
+    assert plans and plans[0].feasible
+    activity_actions = [a for a in plans[0].actions if a.node_id == "activity"]
+    assert activity_actions
+    assert activity_actions[0].change_type == "rescheduled"
+

@@ -21,6 +21,7 @@ activity that depends on both a flight and a transfer).
 from __future__ import annotations
 
 from collections import deque
+from app.core.pipeline_trace import traced
 
 
 class GraphValidationError(ValueError):
@@ -103,6 +104,7 @@ class GraphEngine:
         """Number of downstream nodes reachable from each node."""
         return {n: len(self.get_downstream_nodes(n)) for n in self._nodes}
 
+    @traced("dependency_graph", "Dependency graph: validate (cycles, missing nodes)", detail=lambda r, a, k: {"errors": len(r)})
     def validate_graph(self) -> list[str]:
         errors: list[str] = []
         for source, targets in self._forward.items():
@@ -140,6 +142,7 @@ class GraphEngine:
                 dfs(node)
         return cycles
 
+    @traced("dependency_graph", "Dependency graph: topological evaluation order", detail=lambda r, a, k: {"order": r})
     def topological_order(self) -> list[str]:
         """Kahn's algorithm. Raises GraphValidationError if the graph has a cycle."""
         in_degree = {n: len(self._backward.get(n, ())) for n in self._nodes}

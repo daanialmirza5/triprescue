@@ -2,7 +2,7 @@
 
 No live airline/hotel/activity APIs are wired up yet - these interfaces exist so
 that a real provider integration can be dropped in later (see
-docs/FUTURE_ROADMAP.md) without touching the RecoveryEngine itself, which only
+README.md) without touching the RecoveryEngine itself, which only
 ever talks to these abstractions.
 """
 
@@ -11,6 +11,20 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+
+
+class ProviderFailureError(RuntimeError):
+    """Expected provider failure that recovery can surface without crashing."""
+
+    def __init__(self, provider_name: str, reason: str, kind: str = "unavailable"):
+        self.provider_name = provider_name
+        self.reason = reason
+        self.kind = kind
+        super().__init__(f"{provider_name}: {reason}")
+
+
+def provider_failure_message(provider_name: str, reason: str) -> str:
+    return f"{provider_name} is unavailable right now: {reason}"
 
 
 @dataclass
@@ -27,6 +41,9 @@ class ProviderAlternative:
     refundable: bool
     refund_percentage: float
     cancellation_deadline_hours: int
+    # "live" when the option came from a real provider API, "simulated" for
+    # mock/fallback inventory. Surfaced to travelers on each recovery plan.
+    source: str = "simulated"
 
 
 @dataclass

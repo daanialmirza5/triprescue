@@ -48,6 +48,7 @@ class DisruptionType(str, enum.Enum):
     ACTIVITY_CANCELLATION = "activity-cancellation"
     ACTIVITY_DELAY = "activity-delay"
     AIRPORT_CLOSURE = "airport-closure"
+    WEATHER_DISRUPTION = "weather-disruption"
 
 
 class ImpactLevel(str, enum.Enum):

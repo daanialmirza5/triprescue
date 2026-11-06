@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.core.datetime_utils import utcnow_naive
 
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -25,7 +26,7 @@ class Disruption(Base):
     financial_exposure: Mapped[float] = mapped_column(Float, default=0)
     refund_exposure: Mapped[float] = mapped_column(Float, default=0)
 
-    detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    detected_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     resolved: Mapped[bool] = mapped_column(Boolean, default=False)
 
     trip: Mapped["Trip"] = relationship(back_populates="disruptions")

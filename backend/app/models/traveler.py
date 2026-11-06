@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, String
+from sqlalchemy import JSON, Boolean, String, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -26,5 +26,9 @@ class Traveler(Base):
     loyalty_tier: Mapped[str] = mapped_column(String, default="Standard")
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     preferences: Mapped[dict] = mapped_column(JSON, default=lambda: dict(DEFAULT_PREFERENCES))
+    # Per-traveler consent for notification emails. Defaults on (these are
+    # transactional alerts about the traveler's own trips); the global
+    # EMAIL_NOTIFICATIONS_ENABLED setting must also be on for anything to send.
+    email_notifications_opt_in: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
 
     trips: Mapped[list["Trip"]] = relationship(back_populates="traveler", cascade="all, delete-orphan")

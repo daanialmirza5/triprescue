@@ -1,4 +1,4 @@
-def _register(client, name="Test Traveler", email="test.traveler@example.com", password="hunter2"):
+def _register(client, name="Test Traveler", email="test.traveler@example.com", password="Hunter2!pw"):
     resp = client.post("/api/auth/register", json={"name": name, "email": email, "password": password})
     assert resp.status_code == 200, resp.text
     return resp.json()
@@ -14,7 +14,7 @@ def test_register_then_login_round_trip(client):
     assert registered["email"] == "test.traveler@example.com"
     assert registered["token"]
 
-    resp = client.post("/api/auth/login", json={"email": "test.traveler@example.com", "password": "hunter2"})
+    resp = client.post("/api/auth/login", json={"email": "test.traveler@example.com", "password": "Hunter2!pw"})
     assert resp.status_code == 200
     assert resp.json()["travelerId"] == registered["travelerId"]
 
@@ -28,7 +28,7 @@ def test_login_with_wrong_password_is_401(client):
 def test_register_duplicate_email_is_409(client):
     _register(client)
     resp = client.post(
-        "/api/auth/register", json={"name": "Someone Else", "email": "test.traveler@example.com", "password": "x"}
+        "/api/auth/register", json={"name": "Someone Else", "email": "test.traveler@example.com", "password": "Str0ng!Pass"}
     )
     assert resp.status_code == 409
 
@@ -154,12 +154,12 @@ def test_token_well_within_the_ttl_is_still_accepted(client, monkeypatch):
 def test_excessive_registration_attempts_are_rate_limited(client):
     for i in range(5):  # default register_rate_limit is 5/minute
         resp = client.post(
-            "/api/auth/register", json={"name": "Spammer", "email": f"spam{i}@example.com", "password": "x"}
+            "/api/auth/register", json={"name": "Spammer", "email": f"spam{i}@example.com", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 200, resp.text
 
     resp = client.post(
-        "/api/auth/register", json={"name": "Spammer", "email": "spam-over-limit@example.com", "password": "x"}
+        "/api/auth/register", json={"name": "Spammer", "email": "spam-over-limit@example.com", "password": "Str0ng!Pass"}
     )
     assert resp.status_code == 429
 
@@ -179,9 +179,47 @@ def test_rate_limiting_does_not_block_ordinary_usage(client):
     trip the limiter - it exists to stop abuse, not normal traffic."""
     for i in range(3):
         resp = client.post(
-            "/api/auth/register", json={"name": "Normal User", "email": f"normal{i}@example.com", "password": "x"}
+            "/api/auth/register", json={"name": "Normal User", "email": f"normal{i}@example.com", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 200, resp.text
 
-    resp = client.post("/api/auth/login", json={"email": "normal0@example.com", "password": "x"})
+    resp = client.post("/api/auth/login", json={"email": "normal0@example.com", "password": "Str0ng!Pass"})
     assert resp.status_code == 200, resp.text
+
+
+# ---- password strength (registration only) --------------------------------------------
+
+
+def test_password_problems_names_every_missing_requirement():
+    from app.services.auth_service import password_problems
+
+    assert password_problems("Str0ng!Pass") == []
+    assert password_problems("abc") == [
+        "at least 8 characters", "an uppercase letter", "a number", "a symbol (e.g. ! @ # $)",
+    ]
+    assert password_problems("password") == ["an uppercase letter", "a number", "a symbol (e.g. ! @ # $)"]
+    assert password_problems("PASSWORD1!") == ["a lowercase letter"]
+    assert password_problems("Passw0rd  ") == ["a symbol (e.g. ! @ # $)"]  # spaces don't count as a symbol
+    assert password_problems("Aa1!" + "x" * 200) == ["at most 128 characters"]
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("weak", ["x", "short1!", "alllowercase1!", "ALLUPPERCASE1!", "NoNumbers!!", "NoSymbols123"])
+def test_register_rejects_weak_passwords(client, weak):
+    resp = client.post("/api/auth/register", json={"name": "Weak", "email": f"weak-{abs(hash(weak))}@example.com", "password": weak})
+    assert resp.status_code == 422
+    assert resp.json()["detail"].startswith("Choose a stronger password - it needs ")
+
+
+def test_register_accepts_a_strong_password_and_it_can_log_in(client):
+    body = {"name": "Strong", "email": "strong@example.com", "password": "Tr1p-Safe!"}
+    assert client.post("/api/auth/register", json=body).status_code == 200
+    assert client.post("/api/auth/login", json={"email": body["email"], "password": body["password"]}).status_code == 200
+
+
+def test_existing_accounts_can_still_log_in_regardless_of_strength(client):
+    # The rule applies to new passwords only; the seeded demo account keeps working.
+    resp = client.post("/api/auth/login", json={"email": "aisha.khan@example.com", "password": "safarsathi-demo"})
+    assert resp.status_code == 200

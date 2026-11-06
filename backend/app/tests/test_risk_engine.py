@@ -80,3 +80,30 @@ def test_itinerary_engine_health_score_is_not_hardcoded_and_reacts_to_disruption
     assert 0 <= healthy_score <= 100
     assert 0 <= disrupted_score <= 100
     assert disrupted_score < healthy_score
+
+
+def _road_risk(hour, road=True, available=100):
+    from datetime import datetime as _dt
+
+    from app.engines.risk_engine import RiskEngine as _RE
+
+    return _RE().connection_risk(
+        edge_label="e", available_minutes=available, required_minutes=60, recommended_minutes=90,
+        location="Leh", moment=_dt(2026, 1, 5, hour, 0), dependency_count=1, road=road,
+    )
+
+
+def test_peak_hour_road_traffic_raises_transfer_risk_and_says_it_is_modelled():
+    peak, off_peak = _road_risk(9), _road_risk(14)
+    assert peak.risk_percent > off_peak.risk_percent
+    assert any("peak traffic hours" in f and "modelled" in f for f in peak.contributing_factors)
+    assert not any("peak traffic" in f for f in off_peak.contributing_factors)
+
+
+def test_traffic_model_only_applies_to_road_legs():
+    assert _road_risk(9, road=False).risk_percent == _road_risk(14, road=False).risk_percent
+
+
+def test_traffic_never_moves_a_score_across_its_band():
+    # A buffer that meets the recommendation stays below "high" even at rush hour.
+    assert _road_risk(18, available=200).risk_percent <= 59

@@ -22,6 +22,23 @@ def parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def utcnow_naive() -> datetime:
+    """Current UTC time as a naive datetime (no tzinfo).
+
+    Every scheduled/detected/expiry timestamp elsewhere in this codebase
+    (EngineNode.scheduled_start, Disruption.detected_at, cached expiry
+    times, etc.) is naive-but-UTC by convention, so this must stay naive
+    too or every comparison against those fields breaks with "can't
+    compare offset-naive and offset-aware datetimes". This exists only to
+    replace the deprecated ``datetime.utcnow()`` (removed in a future
+    Python version) without changing that convention - it is NOT a
+    general-purpose "give me an aware UTC now", which is what
+    ``datetime.now(timezone.utc)`` is for at the JSON/API boundary (see
+    ``format_utc_iso`` / ``parse_iso_datetime`` above).
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def format_utc_iso(dt: Optional[datetime]) -> Optional[str]:
     """Format a datetime into an ISO 8601 UTC string (with 'Z' suffix)."""
     if dt is None:

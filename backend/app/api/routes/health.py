@@ -44,6 +44,7 @@ def readiness(response: Response, db: Session = Depends(get_db)):
 
 @router.get("/api/health")
 def health(db: Session = Depends(get_db)):
+    """General health check endpoint for monitoring dashboards and reverse proxies."""
     settings = get_settings()
     try:
         db.execute(text("SELECT 1"))
@@ -55,4 +56,6 @@ def health(db: Session = Depends(get_db)):
         "status": "ok" if database_status == "ok" else "degraded",
         "database": database_status,
         "environment": settings.environment,
+        "version": "0.1.0",
     }
+

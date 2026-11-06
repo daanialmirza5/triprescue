@@ -1,3 +1,4 @@
+from datetime import datetime
 def test_health(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
@@ -38,7 +39,7 @@ def test_get_unknown_trip_is_404(client):
     assert resp.status_code == 404
 
 
-def _register(client, name="Trip Creator", email="trip.creator@example.com", password="hunter2"):
+def _register(client, name="Trip Creator", email="trip.creator@example.com", password="Hunter2!pw"):
     resp = client.post("/api/auth/register", json={"name": name, "email": email, "password": password})
     assert resp.status_code == 200, resp.text
     return resp.json()
@@ -164,12 +165,64 @@ def test_missing_required_fields_are_rejected(client):
     assert resp.status_code == 422
 
 
-def test_get_risks(client):
+def test_get_risks(client, monkeypatch):
+    from app.config import get_settings
+    from app.services import risk_service
+    from app.providers.weather_provider import WeatherSnapshot
+    monkeypatch.setattr(get_settings(), "weather_risk_enabled", True)  # conftest turns it off
+    monkeypatch.setattr(
+        risk_service._weather_provider,
+        "get_snapshot",
+        lambda lat, lng, moment: WeatherSnapshot(21, 80, 28, 63, "Rain showers", datetime.utcnow()),
+    )
     resp = client.get("/api/trips/trip-ladakh-2025/risks")
     assert resp.status_code == 200
     body = resp.json()
     assert 0 <= body["score"]["tripResilience"] <= 100
     assert isinstance(body["cards"], list)
+    # Live severity 63 vs the heuristic 8 (no Ladakh booking is before 06:00 or
+    # from 20:00): the blend moves it by at most 20 points.
+    assert body["score"]["weatherRisk"] == 28
+
+
+def test_risks_use_heuristic_only_when_live_weather_disabled(client, monkeypatch):
+    from app.services import risk_service
+
+    def fail(*args, **kwargs):
+        raise AssertionError("no weather lookups when weather_risk_enabled is False")
+
+    monkeypatch.setattr(risk_service._weather_provider, "get_snapshot", fail)
+    resp = client.get("/api/trips/trip-ladakh-2025/risks")
+    assert resp.status_code == 200
+    assert resp.json()["score"]["weatherRisk"] == 8
+
+
+def test_blend_live_weather_is_capped_both_ways():
+    from app.services.risk_service import _blend_live_weather
+
+    assert _blend_live_weather(8, 63) == 28
+    assert _blend_live_weather(40, 0) == 20
+    assert _blend_live_weather(30, 38) == 38  # within the cap: live wins
+    assert _blend_live_weather(30, 38, cap=5) == 35
+
+
+def test_time_of_day_heuristic_counts_early_and_late_bookings():
+    from types import SimpleNamespace
+
+    from app.services.risk_service import _time_of_day_weather_heuristic
+
+    at = lambda h: SimpleNamespace(scheduled_start=datetime(2026, 1, 1, h, 0))  # noqa: E731
+    assert _time_of_day_weather_heuristic([]) == 8
+    assert _time_of_day_weather_heuristic([at(9), at(14)]) == 8
+    assert _time_of_day_weather_heuristic([at(5), at(20)]) == 38  # all in the window: 8 + 30
+    assert _time_of_day_weather_heuristic([at(5), at(12), at(19), at(21)]) == 23  # half: 8 + 15
+
+
+def test_poll_risk_once(client):
+    resp = client.post("/api/trips/trip-ladakh-2025/risk/poll-once")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert isinstance(body, list)
 
 
 def test_get_bookings(client):
